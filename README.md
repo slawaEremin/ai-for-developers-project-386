@@ -62,6 +62,58 @@
 
 Источник требований: [первый шаг проекта Hexlet](https://ru.hexlet.io/projects/386/members/52904?step=1).
 
+## Разработка
+
+Каркас построен на структуре [ai-starter](https://github.com/slawaEremin/ai-starter). Бэкенд находится в `apps/backend`, фронтенд в `apps/frontend`, Dockerfile в `apps/infra`, контракт TypeSpec в `specs`. Описанные выше функции календаря ещё не реализованы.
+
+Нужны Git, GNU Make 3.81 или новее, [uv 0.13.7](https://docs.astral.sh/uv/getting-started/installation/), Node.js 24.22.2 и npm 10.8.2. Версия Node указана в `.nvmrc`, npm — в `packageManager` корневого `package.json`, uv — в `tool.uv.required-version` файла `apps/backend/pyproject.toml`. uv установит Python 3.13.18 из `apps/backend/.python-version`, если подходящей версии нет на компьютере. Первая установка требует доступа к сети.
+
+Если используете nvm, выполните `nvm install` и `nvm use` из корня репозитория. Установите npm указанной в проекте версии, затем подготовьте зависимости и запустите проверки:
+
+```sh
+npm install --global "$(node --print "require('./package.json').packageManager")"
+make setup
+make check
+```
+
+| Команда | Действие |
+| --- | --- |
+| `make setup` | Установить зависимости из lock-файлов и сгенерировать контракт, модели и SDK |
+| `make lint` | Проверить Python, Vue, TypeScript, TypeSpec и актуальность генерации |
+| `make test` | Запустить по одному дымовому тесту бэкенда и фронтенда без watch-режима |
+| `make build` | Проверить типы и собрать фронтенд |
+| `make check` | Последовательно выполнить `make lint`, `make test` и `make build`; остановиться при ошибке |
+| `make generate` | Обновить OpenAPI JSON, модели Pydantic и TypeScript SDK |
+
+Команды поддерживают `make -C /путь/к/репозиторию`. Зависимости закреплены в `apps/backend/uv.lock` и корневом `package-lock.json`. Команда `make setup` не добавляет Git-хуки и глобальные инструменты.
+
+После подготовки окружения для всех проверок достаточно `make check`, в том числе при запуске с `-j`. Эта же команда выполняется в GitHub Actions на каждый push в любую ветку или тег. CI устанавливает зависимости из lock-файлов без `make setup`, чтобы не перезаписывать сгенерированные файлы до проверки их актуальности. Docker проверяется отдельно. Подробнее — в [описании workflow](.github/workflows/README.md).
+
+[![Проверки проекта](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml/badge.svg)](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml)
+
+Запустите приложения в отдельных терминалах.
+
+```sh
+cd apps/backend
+uv run --locked uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+```sh
+# Из корня репозитория
+npm run dev --workspace apps/frontend
+```
+
+Пустая страница Vue доступна по адресу `http://127.0.0.1:5173` и не обращается к API. Бэкенд отвечает на `GET http://127.0.0.1:8000/health` JSON `{"status":"ok"}`. Swagger UI доступен по адресу `http://127.0.0.1:8000/docs`.
+
+Для сборки фронтенда выполните `npm run build`. Для сборки и запуска всего приложения в одном контейнере используйте Docker.
+
+```sh
+docker build -f apps/infra/Dockerfile -t calendar .
+docker run --rm -p 8000:8000 calendar
+```
+
+В контейнере FastAPI отдаёт API и собранную страницу по адресу `http://127.0.0.1:8000/`. Подробности находятся в [README бэкенда](apps/backend/README.md), [README фронтенда](apps/frontend/README.md), [описании контракта](specs/README.md) и [инструкции Docker](apps/infra/README.md).
+
 ## Hexlet tests and linter status
 
 [![Actions Status](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/slawaEremin/ai-for-developers-project-386/actions)

@@ -1,0 +1,30 @@
+{
+  "name": "calendar-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "workspaces": [
+    "apps/frontend",
+    "specs"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "lint": "tsp format --check specs/main.tsp && npm run lint --workspace apps/frontend && npm run generate:check",
+    "build": "npm run build --workspace apps/frontend"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2",
+    "undici@^7.0.0": "7.30.1"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@typespec/compiler": "1.17.0",
+    "@typespec/http": "1.17.0",
+    "@typespec/openapi3": "1.17.0",
+    "typescript": "6.0.3"
+  }
+}

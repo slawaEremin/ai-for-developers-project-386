@@ -1,5 +1,19 @@
-# Automatic tests
+# Проверки GitHub Actions
 
-After completing all the steps in the project, automatic tests will become available to you. Tests are run on each commit - once all tasks in the Hexlet interface are completed, make a commit, and the tests will run automatically.
+## Проверки проекта
 
-The hexlet-check.yml file is responsible for running these tests - do not delete this file, edit it, or rename the repository.
+`check.yml` выполняется на каждый push без ограничений по веткам, тегам и путям. Один job на Ubuntu 24.04 устанавливает инструменты закреплённых версий и зависимости из lock-файлов, затем запускает `make check`.
+
+Версии Node.js и npm читаются из корневых `.nvmrc` и `package.json` соответственно. Версия uv берётся из `tool.uv.required-version` в `apps/backend/pyproject.toml`; при `uv sync --locked` Python выбирается по `apps/backend/.python-version`. Используемые Actions закреплены полными SHA релизов с версией в комментарии.
+
+`make check` последовательно запускает линтинг Python, Vue и TypeSpec, проверку типов и актуальности генерации, тесты бэкенда и фронтенда, затем сборку фронтенда. Ошибка любого этапа останавливает прогон. Docker проверяется отдельно.
+
+CI не вызывает `make setup`: эта команда перегенерирует файлы и может скрыть устаревший контракт, модели или SDK. Вместо неё выполняются `npm ci` в корне и `uv sync --locked` в `apps/backend`. Проверка генерации создаёт результаты во временном каталоге и сравнивает их с сохранёнными файлами, не исправляя расхождения.
+
+Для воспроизведения прогона локально подготовьте версии инструментов по корневому README, выполните те же команды установки зависимостей и `make check`. Для отдельных этапов доступны `make lint`, `make test` и `make build`.
+
+## Учебные проверки Hexlet
+
+`hexlet-check.yml` управляется Hexlet и запускает учебные проверки на каждый push. Автоматические тесты станут доступны после завершения всех шагов проекта в интерфейсе Hexlet; затем нужно сделать коммит и push.
+
+Не редактируйте и не удаляйте `hexlet-check.yml`, не переименовывайте репозиторий.

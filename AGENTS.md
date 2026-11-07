@@ -42,3 +42,17 @@ JavaScript-зависимости управляются npm workspaces с од�
 Документацию пиши по-русски. В корневом README различай требования к будущему календарю и уже реализованные возможности.
 
 Файл `.github/workflows/hexlet-check.yml` управляется Hexlet. Не редактируй и не удаляй его; назначение описано в [.github/workflows/README.md](.github/workflows/README.md).
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спецификации ведутся в GitHub Issues. Перед работой с ними прочитай `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Используются пять стандартных ролей triage. Перед назначением меток прочитай `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Доменная документация общая для проекта (single-context). Перед исследованием кода прочитай `docs/agents/domain.md`.

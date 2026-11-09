@@ -10,6 +10,10 @@ export default ts.config(
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: ts.parser } },
-    rules: { 'vue/multi-word-component-names': 'off' },
+    rules: {
+      // Имена в TypeScript, включая DOM-типы в Vue, проверяет vue-tsc.
+      'no-undef': 'off',
+      'vue/multi-word-component-names': 'off',
+    },
   },
 );

@@ -64,7 +64,12 @@
 
 ## Разработка
 
-Каркас построен на структуре [ai-starter](https://github.com/slawaEremin/ai-starter). Бэкенд находится в `apps/backend`, фронтенд в `apps/frontend`, Dockerfile в `apps/infra`, контракт TypeSpec в `specs`. Описанные выше функции календаря ещё не реализованы.
+Каркас построен на структуре [ai-starter](https://github.com/slawaEremin/ai-starter). Бэкенд находится в `apps/backend`, фронтенд в `apps/frontend`, Dockerfile в `apps/infra`, контракт TypeSpec в `specs`.
+
+Реализована главная страница с описанием сервиса, примером выбора времени и
+объяснением трёх шагов записи. Кнопка «Записаться на звонок» ведёт на отдельную
+страницу-заглушку с возвратом на главную. Описанные выше функции календаря
+ещё не реализованы; обе страницы предупреждают, что онлайн-запись пока недоступна.
 
 Нужны Git, GNU Make 3.81 или новее, [uv 0.13.7](https://docs.astral.sh/uv/getting-started/installation/), Node.js 24.22.2 и npm 10.8.2. Версия Node указана в `.nvmrc`, npm — в `packageManager` корневого `package.json`, uv — в `tool.uv.required-version` файла `apps/backend/pyproject.toml`. uv установит Python 3.13.18 из `apps/backend/.python-version`, если подходящей версии нет на компьютере. Первая установка требует доступа к сети.
 
@@ -80,7 +85,7 @@ make check
 | --- | --- |
 | `make setup` | Установить зависимости из lock-файлов и сгенерировать контракт, модели и SDK |
 | `make lint` | Проверить Python, Vue, TypeScript, TypeSpec и актуальность генерации |
-| `make test` | Запустить по одному дымовому тесту бэкенда и фронтенда без watch-режима |
+| `make test` | Запустить тесты бэкенда и фронтенда без watch-режима |
 | `make build` | Проверить типы и собрать фронтенд |
 | `make check` | Последовательно выполнить `make lint`, `make test` и `make build`; остановиться при ошибке |
 | `make generate` | Обновить OpenAPI JSON, модели Pydantic и TypeScript SDK |
@@ -103,7 +108,11 @@ uv run --locked uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 npm run dev --workspace apps/frontend
 ```
 
-Пустая страница Vue доступна по адресу `http://127.0.0.1:5173` и не обращается к API. Бэкенд отвечает на `GET http://127.0.0.1:8000/health` JSON `{"status":"ok"}`. Swagger UI доступен по адресу `http://127.0.0.1:8000/docs`.
+Главная страница Vue доступна по адресу `http://127.0.0.1:5173/`,
+заглушка записи — по адресу `http://127.0.0.1:5173/#/booking`.
+Обе страницы работают без обращения к API. Бэкенд отвечает на
+`GET http://127.0.0.1:8000/health` JSON `{"status":"ok"}`.
+Swagger UI доступен по адресу `http://127.0.0.1:8000/docs`.
 
 Для сборки фронтенда выполните `npm run build`. Для сборки и запуска всего приложения в одном контейнере используйте Docker.
 

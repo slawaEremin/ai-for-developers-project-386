@@ -1,9 +1,27 @@
 # Контракт API
 
-Источник контракта находится в `main.tsp`. Он описывает `GET /health` с ответом HTTP 200 и JSON `{"status":"ok"}`.
+Источник контракта — `main.tsp`. Сейчас описаны `GET /health` с ответом
+`{"status":"ok"}` и `POST /api/meeting-types` с ответом 201 и объектом
+`id`, `name`, `description`, `durationMinutes`.
 
-Из корня репозитория выполните `make generate`, чтобы получить OpenAPI JSON в `specs/generated/openapi.json`, модели Pydantic в `apps/backend/app/generated/models.py` и TypeScript SDK в `apps/frontend/src/api/generated`.
+Идентификатор содержит 1–64 строчных латинских букв, цифр и дефисов, по краям
+буква или цифра. После удаления пробелов по краям название содержит 1–120
+символов Unicode без переносов, описание — 1–2000 с допустимыми переносами.
+Длительность — целое число 1–540: JSON `30.0` допустим, `"30"` и `true` нет.
+Все поля обязательны, `null` и неизвестные поля запрещены.
 
-Генераторы устанавливаются через корневой npm workspace и окружение uv бэкенда. TypeSpec компилируется в OpenAPI 3.1, затем `datamodel-code-generator` создаёт модели Pydantic v2, а `@hey-api/openapi-ts` создаёт SDK на Fetch API. Маршруты FastAPI реализуются вручную с использованием сгенерированных моделей.
+POST принимает `application/json`. Ошибки 400/409/415/422/503/500 содержат
+`code`, `message` и при необходимости `fieldErrors`. Ответы календаря имеют
+`Cache-Control: no-store`. Остальные операции календаря добавляются следующими
+задачами спецификации.
 
-Сгенерированные файлы хранятся в Git и не редактируются вручную. `make lint` повторяет генерацию во временном каталоге и проверяет её соответствие сохранённым файлам.
+`make generate` создаёт `specs/generated/openapi.json`,
+`apps/backend/app/generated/models.py` и `apps/frontend/src/api/generated`.
+TypeSpec компилируется в OpenAPI 3.1 с закрытыми объектными схемами;
+`datamodel-code-generator` создаёт Pydantic v2 с запретом лишних полей,
+`@hey-api/openapi-ts` — SDK на Fetch API. Дополнительные смысловые проверки
+выполняются сервером поверх сгенерированной модели.
+
+Генераторы устанавливаются корневым npm workspace и uv-окружением бэкенда.
+Результаты хранятся в Git и вручную не редактируются. `make lint` повторяет
+генерацию во временном каталоге и проверяет соответствие файлов.

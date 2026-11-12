@@ -2,18 +2,26 @@
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import BookingPage from './pages/BookingPage.vue';
 import HomePage from './pages/HomePage.vue';
+import OwnerPage from './pages/OwnerPage.vue';
 
-const isBooking = ref(window.location.hash === '#/booking');
+function currentPage() {
+  const hash = window.location.hash.split('?')[0];
+  return hash === '#/owner' || hash === '#/booking' ? hash : '#/';
+}
+
+const page = ref(currentPage());
+const isBooking = ref(page.value === '#/booking');
 const main = ref<HTMLElement | null>(null);
 
 function updateTitle() {
-  document.title = isBooking.value ? 'Запись на звонок — Календарь звонков' : 'Календарь звонков';
+  document.title = page.value === '#/owner' ? 'Владелец — Календарь звонков' : isBooking.value ? 'Запись на звонок — Календарь звонков' : 'Календарь звонков';
 }
 
 async function syncPage() {
-  const nextIsBooking = window.location.hash === '#/booking';
-  if (nextIsBooking === isBooking.value) return;
-  isBooking.value = nextIsBooking;
+  const nextPage = currentPage();
+  if (nextPage === page.value) return;
+  page.value = nextPage;
+  isBooking.value = nextPage === '#/booking';
   updateTitle();
   await nextTick();
   main.value?.querySelector('h1')?.focus();
@@ -69,6 +77,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncPage));
       </a>
       <nav aria-label="Основная навигация">
         <a
+          class="nav-link"
+          href="#/owner"
+        >Владельцу</a>
+        <a
           v-if="!isBooking"
           class="nav-link"
           href="#how-it-works"
@@ -94,6 +106,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncPage));
       tabindex="-1"
     >
       <BookingPage v-if="isBooking" />
+      <OwnerPage v-else-if="page === '#/owner'" />
       <HomePage v-else />
     </main>
 

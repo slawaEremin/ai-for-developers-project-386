@@ -4,9 +4,83 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type ApiError = {
+    code: string;
+    message: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type DurationMinutes = number;
+
 export type HealthResponse = {
     status: 'ok';
 };
+
+export type MeetingType = {
+    id: MeetingTypeId;
+    name: MeetingTypeName;
+    description: MeetingTypeDescription;
+    durationMinutes: DurationMinutes;
+};
+
+/**
+ * Обычный текст с внутренними переносами; края очищаются от пробелов.
+ */
+export type MeetingTypeDescription = string;
+
+export type MeetingTypeId = string;
+
+/**
+ * Однострочный обычный текст; края очищаются от пробелов, длина в Unicode.
+ */
+export type MeetingTypeName = string;
+
+export type CreateMeetingTypeData = {
+    body: MeetingType;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type CreateMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: ApiError;
+    /**
+     * Client error
+     */
+    415: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
+
+export type CreateMeetingTypeResponses = {
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: MeetingType;
+};
+
+export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
 
 export type GetHealthData = {
     body?: never;

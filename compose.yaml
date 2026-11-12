@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: calendar
+      POSTGRES_USER: calendar
+      POSTGRES_PASSWORD: calendar
+    ports:
+      - "127.0.0.1:55431:5432"
+    volumes:
+      - calendar-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calendar -d calendar"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  app:
+    build:
+      context: .
+      dockerfile: apps/infra/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://calendar:calendar@db:5432/calendar
+      OWNER_NAME: Владелец календаря
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+volumes:
+  calendar-data:

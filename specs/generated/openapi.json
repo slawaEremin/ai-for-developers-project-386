@@ -6,6 +6,171 @@
   },
   "tags": [],
   "paths": {
+    "/api/meeting-types": {
+      "post": {
+        "operationId": "createMeetingType",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingType"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Client error",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Client error",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingType"
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -27,6 +192,36 @@
   },
   "components": {
     "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fieldErrors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "unevaluatedProperties": {
+          "not": {}
+        }
+      },
+      "DurationMinutes": {
+        "type": "integer",
+        "format": "int32",
+        "minimum": 1,
+        "maximum": 540
+      },
       "HealthResponse": {
         "type": "object",
         "required": [
@@ -39,7 +234,54 @@
               "ok"
             ]
           }
+        },
+        "unevaluatedProperties": {
+          "not": {}
         }
+      },
+      "MeetingType": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "durationMinutes"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/MeetingTypeId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/MeetingTypeName"
+          },
+          "description": {
+            "$ref": "#/components/schemas/MeetingTypeDescription"
+          },
+          "durationMinutes": {
+            "$ref": "#/components/schemas/DurationMinutes"
+          }
+        },
+        "unevaluatedProperties": {
+          "not": {}
+        }
+      },
+      "MeetingTypeDescription": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000,
+        "description": "Обычный текст с внутренними переносами; края очищаются от пробелов."
+      },
+      "MeetingTypeId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+      },
+      "MeetingTypeName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Однострочный обычный текст; края очищаются от пробелов, длина в Unicode."
       }
     }
   }

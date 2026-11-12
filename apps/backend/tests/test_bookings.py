@@ -640,10 +640,14 @@ def test_connection_establishment_and_owner_lock_share_same_deadline(
                         if not readable:
                             return
                         for source in readable:
+                        try:
                             data = source.recv(65536)
                             if not data:
                                 return
                             (postgres if source is browser else browser).sendall(data)
+                        except (ConnectionResetError, BrokenPipeError):
+                            # После deadline закрытый клиент может прислать TCP RST.
+                                return
 
         monkeypatch.setenv(
             "DATABASE_URL",

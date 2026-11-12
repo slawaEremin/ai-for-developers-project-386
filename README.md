@@ -169,6 +169,11 @@ Swagger UI доступен по адресу `http://127.0.0.1:8000/docs`.
 [фронтенд](apps/frontend/README.md), [контракт](specs/README.md),
 [Docker и сохранность данных](apps/infra/README.md).
 
+Версия приложения хранится в `version.txt`. Отдельный workflow release-please
+готовит release-PR по Conventional Commits после изменения `main`; ручное
+слияние release-PR создаёт тег и GitHub Release. Подробнее —
+[в инструкции релизов](.github/workflows/README.md#релизы-приложения).
+
 [![Проверки проекта](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml/badge.svg)](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml)
 
 ## Hexlet tests and linter status

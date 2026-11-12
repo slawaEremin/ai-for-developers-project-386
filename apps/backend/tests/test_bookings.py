@@ -666,3 +666,29 @@ def test_connection_establishment_and_owner_lock_share_same_deadline(
             assert response.json()["code"] == "SERVICE_UNAVAILABLE"
             forwarding.result(timeout=3)
     assert counts(database) == (0, 0)
+
+
+def test_unexpected_failure_returns_internal_error_and_preserves_booking_attempt(
+    database, booking_client
+):
+    client, _ = booking_client
+    key = str(uuid4())
+
+    def fail_clock(connection):
+        raise RuntimeError("unexpected clock failure")
+
+    original_clock = app.dependency_overrides[calendar_clock]
+    app.dependency_overrides[calendar_clock] = lambda: fail_clock
+    try:
+        result = post(client, key=key)
+        assert result.status_code == 500
+        assert result.json() == {
+            "code": "INTERNAL_ERROR",
+            "message": "Внутренняя ошибка сервера",
+        }
+        assert result.headers["cache-control"] == "no-store"
+        assert counts(database) == (0, 0)
+    finally:
+        app.dependency_overrides[calendar_clock] = original_clock
+    assert post(client, key=key).status_code == 201
+    assert counts(database) == (1, 1)

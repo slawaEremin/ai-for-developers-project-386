@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { clearAttempt, restoreAttempt, saveAttempt, type BookingAttempt } from '../bookingAttempt';
+import { formatMoscowDate, formatMoscowInterval, formatMoscowTime } from '../moscowTime';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createBooking, getAvailability } from '../api/generated/sdk.gen';
 import type { Availability, AvailableSlot, Booking } from '../api/generated/types.gen';
@@ -26,10 +27,7 @@ let bookingController: AbortController | undefined;
 let bookingTimer: ReturnType<typeof setTimeout> | undefined;
 let rolloverTimer: ReturnType<typeof setTimeout> | undefined;
 const day = computed(() => data.value?.days.find((item) => item.date === selectedDate.value));
-const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', year: 'numeric' });
-const timeFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-function dateLabel(date: string) { return dateFormat.format(new Date(`${date}T09:00:00+03:00`)); }
-function interval(slot: AvailableSlot) { return `${timeFormat.format(new Date(slot.startsAt))}–${timeFormat.format(new Date(slot.endsAt))}`; }
+function dateLabel(date: string) { return formatMoscowDate(`${date}T09:00:00+03:00`); }
 function chooseSlot(slot: AvailableSlot) { if (locked.value) return; selectedSlot.value = slot; notice.value = ''; }
 function chooseDate(date: string) { if (locked.value) return; selectedDate.value = date; selectedSlot.value = null; notice.value = ''; }
 function scheduleRollover(serverTime: string) {
@@ -156,7 +154,7 @@ onBeforeUnmount(() => {
       role="status"
     >
       <h4>Запись подтверждена</h4>
-      <p>{{ confirmed.meetingTypeName }}. {{ dateLabel(confirmed.startsAt.slice(0, 10)) }}, {{ interval(confirmed) }}. {{ confirmed.durationMinutes }} минут. Московское время (Europe/Moscow).</p>
+      <p>{{ confirmed.meetingTypeName }}. {{ dateLabel(confirmed.startsAt.slice(0, 10)) }}, {{ formatMoscowInterval(confirmed) }}. {{ confirmed.durationMinutes }} минут. Московское время (Europe/Moscow).</p>
       <button
         class="button button-secondary"
         @click="chooseAnother"
@@ -170,7 +168,7 @@ onBeforeUnmount(() => {
     >
       <p>Результат записи неизвестен. Повторите подтверждение той же попытки.</p>
       <p v-if="attempt">
-        {{ attempt.meetingTypeName }}, {{ dateLabel(attempt.startsAt.slice(0, 10)) }}, {{ timeFormat.format(new Date(attempt.startsAt)) }}. Московское время (Europe/Moscow).
+        {{ attempt.meetingTypeName }}, {{ dateLabel(attempt.startsAt.slice(0, 10)) }}, {{ formatMoscowTime(attempt.startsAt) }}. Московское время (Europe/Moscow).
       </p>
       <button
         class="button button-secondary"
@@ -248,7 +246,7 @@ onBeforeUnmount(() => {
           :disabled="locked"
           @click="chooseSlot(slot)"
         >
-          {{ interval(slot) }}
+          {{ formatMoscowInterval(slot) }}
         </button>
       </div>
       <p
@@ -256,7 +254,7 @@ onBeforeUnmount(() => {
         role="status"
         aria-label="Итог записи"
       >
-        Выбрано: {{ meetingTypeName }}, {{ durationMinutes }} минут, {{ dateLabel(selectedDate) }}, {{ interval(selectedSlot) }}. Московское время (Europe/Moscow).
+        Выбрано: {{ meetingTypeName }}, {{ durationMinutes }} минут, {{ dateLabel(selectedDate) }}, {{ formatMoscowInterval(selectedSlot) }}. Московское время (Europe/Moscow).
       </p>
       <p
         v-if="pending"

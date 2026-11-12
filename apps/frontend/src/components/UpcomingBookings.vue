@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoscowDate, formatMoscowInterval } from '../moscowTime';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { listUpcomingBookings } from '../api/generated/sdk.gen';
 import type { UpcomingBookings } from '../api/generated/types.gen';
@@ -7,8 +8,6 @@ const data = ref<UpcomingBookings | null>(null);
 const loading = ref(true);
 const failed = ref(false);
 let request = 0;
-const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', year: 'numeric' });
-const timeFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 async function refresh() {
   const current = ++request;
@@ -72,7 +71,7 @@ onBeforeUnmount(() => {
         :key="booking.id"
       >
         <h3>{{ booking.meetingTypeName }}</h3>
-        <p>{{ dateFormat.format(new Date(booking.startsAt)) }} · {{ timeFormat.format(new Date(booking.startsAt)) }}–{{ timeFormat.format(new Date(booking.endsAt)) }}</p>
+        <p>{{ formatMoscowDate(booking.startsAt) }} · {{ formatMoscowInterval(booking) }}</p>
         <p>{{ booking.durationMinutes }} мин · Москва (Europe/Moscow)</p>
       </li>
     </ul>

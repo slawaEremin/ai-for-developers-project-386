@@ -34,6 +34,7 @@ async function loadCatalog() {
 }
 
 async function selectFromAddress() {
+  if (window.location.hash.split('?')[0] !== '#/booking') return;
   if (bookingLocked.value) {
     window.history.replaceState(null, '', `/#/booking?type=${encodeURIComponent(selected.value!.id)}`);
     return;

@@ -12,7 +12,7 @@ from psycopg import IsolationLevel
 from psycopg.errors import DeadlockDetected, ExclusionViolation, SerializationFailure
 from pydantic import field_validator
 
-from app.availability import MOSCOW
+from app.calendar_policy import MOSCOW, booking_window, is_valid_slot
 from app.clock import calendar_clock
 from app.database import connect
 from app.generated.models import Booking, BookingRequest
@@ -75,19 +75,12 @@ def create_booking_transaction(connection, body, key, clock):
         raise BookingRefusal(404, "MEETING_TYPE_NOT_FOUND", "Тип встречи не найден")
     start = body.startsAt.astimezone(MOSCOW)
     end = start + timedelta(minutes=meeting_type["duration_minutes"])
-    tomorrow = now.astimezone(MOSCOW).date() + timedelta(days=1)
-    if not tomorrow <= start.date() <= tomorrow + timedelta(days=13):
+    first_date, last_date = booking_window(now)
+    if not first_date <= start.date() <= last_date:
         raise BookingRefusal(
             422, "OUTSIDE_BOOKING_WINDOW", "Время вне окна записи. Выберите другой слот"
         )
-    if (
-        start.hour < 9
-        or start.minute not in (0, 30)
-        or start.second
-        or start.microsecond
-        or end.date() != start.date()
-        or (end.hour, end.minute, end.second, end.microsecond) > (18, 0, 0, 0)
-    ):
+    if not is_valid_slot(start, end):
         raise BookingRefusal(
             422, "INVALID_SLOT", "Выберите время по сетке и в рабочие часы"
         )

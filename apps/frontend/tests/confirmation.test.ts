@@ -14,6 +14,7 @@ function api(send: (request: Request) => Promise<Response>) {
     if (readsFailed) return Promise.reject(new Error('reads unavailable'));
     if (request.url.endsWith('/availability')) return Promise.resolve(json({ serverTime: '2026-11-12T12:00:00Z', timeZone: 'Europe/Moscow', windowStartDate: '2026-11-13', windowEndDate: '2026-11-26', days: Array.from({ length: 14 }, (_, i) => ({ date: `2026-11-${13 + i}`, slots: i === 1 && !occupied ? [slot] : [] })) }));
     if (request.url.endsWith('/consultation')) return Promise.resolve(json(meeting));
+    if (request.url.endsWith('/bookings/upcoming')) return Promise.resolve(json({ serverTime: '2026-11-12T12:00:00Z', items: [] }));
     return Promise.resolve(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] }));
   });
   vi.stubGlobal('fetch', fetch);
@@ -272,5 +273,46 @@ test('нечитаемое хранилище блокирует подтвер�
     expect(wrapper.text()).toContain('Не удалось сохранить попытку');
     expect(control.fetch.mock.calls.filter(([r]) => r.method === 'POST')).toHaveLength(0);
     expect(sessionStorage.getItem('calendar.unfinishedBooking')).toBe('{');
+  } finally { wrapper.unmount(); }
+});
+
+
+test.each([
+  ['pending', '#/owner', 'Страница владельца'],
+  ['unknown', '#/owner', 'Страница владельца'],
+  ['pending', '#/', 'Выберите удобное время для звонка.'],
+  ['unknown', '#/', 'Выберите удобное время для звонка.'],
+] as const)('при результате %s переход на %s сохраняет адрес страницы и исходную попытку при возвращении', async (state, destination, heading) => {
+  let calls = 0;
+  const control = api(async () => {
+    calls++;
+    if (calls > 1) return json(booking, 200);
+    if (state === 'pending') return new Promise<Response>(() => {});
+    throw new Error('lost response');
+  });
+  const wrapper = mount(App, { attachTo: document.body });
+  try {
+    await flushPromises();
+    await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Подтвердить запись').trigger('click');
+    await flushPromises();
+    const first = control.fetch.mock.calls.map(([request]) => request).find((request) => request.method === 'POST')!;
+    const payload = await first.clone().json();
+    wrapper.get<HTMLAnchorElement>(`header a[href="${destination}"]`).element.click();
+    await vi.waitFor(() => {
+      expect(wrapper.get('h1').text()).toBe(heading);
+      expect(window.location.hash).toBe(destination);
+    });
+    wrapper.get<HTMLAnchorElement>('header a[href="#/booking"]').element.click();
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Результат записи неизвестен'));
+    expect(wrapper.get('h1').text()).toBe('Запись на звонок');
+    expect(window.location.hash).toBe('#/booking?type=consultation');
+    expect(control.fetch.mock.calls.filter(([request]) => request.method === 'POST')).toHaveLength(1);
+    await button(wrapper, 'Повторить подтверждение').trigger('click');
+    await flushPromises();
+    const repeat = control.fetch.mock.calls.map(([request]) => request).filter((request) => request.method === 'POST')[1]!;
+    expect(repeat.headers.get('Idempotency-Key')).toBe(first.headers.get('Idempotency-Key'));
+    expect(await repeat.json()).toEqual(payload);
+    expect(wrapper.find('[aria-label="Запись подтверждена"]').exists()).toBe(true);
   } finally { wrapper.unmount(); }
 });

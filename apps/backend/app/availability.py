@@ -1,16 +1,15 @@
 from datetime import UTC, datetime, time, timedelta
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Path
 from fastapi.responses import JSONResponse
 
+from app.calendar_policy import MOSCOW, booking_window, slot_intervals
 from app.clock import calendar_clock
 from app.database import connect
 from app.generated.models import Availability
 
 router = APIRouter()
-MOSCOW = ZoneInfo("Europe/Moscow")
 
 
 @router.get(
@@ -40,38 +39,32 @@ def get_availability(
                 },
             )
         server_time = clock(connection)
-        first_date = server_time.astimezone(MOSCOW).date() + timedelta(days=1)
+        first_date, last_date = booking_window(server_time)
         occupied = connection.execute(
             "SELECT starts_at, ends_at FROM bookings WHERE starts_at < %s AND ends_at > %s",
             (
-                datetime.combine(first_date + timedelta(days=14), time(), MOSCOW),
+                datetime.combine(last_date + timedelta(days=1), time(), MOSCOW),
                 datetime.combine(first_date, time(), MOSCOW),
             ),
         ).fetchall()
     duration = timedelta(minutes=meeting_type["duration_minutes"])
     days = []
-    for offset in range(14):
-        date = first_date + timedelta(days=offset)
-        start = datetime.combine(date, time(9), MOSCOW)
-        closing = datetime.combine(date, time(18), MOSCOW)
+    date = first_date
+    while date <= last_date:
         slots = []
-        while start + duration <= closing:
+        for start, end in slot_intervals(date, duration):
             if not any(
-                start < busy["ends_at"] and start + duration > busy["starts_at"]
-                for busy in occupied
+                start < busy["ends_at"] and end > busy["starts_at"] for busy in occupied
             ):
                 slots.append(
-                    {
-                        "startsAt": start.astimezone(UTC),
-                        "endsAt": (start + duration).astimezone(UTC),
-                    }
+                    {"startsAt": start.astimezone(UTC), "endsAt": end.astimezone(UTC)}
                 )
-            start += timedelta(minutes=30)
         days.append({"date": date, "slots": slots})
+        date += timedelta(days=1)
     return {
         "serverTime": server_time.astimezone(UTC),
         "timeZone": "Europe/Moscow",
         "windowStartDate": first_date,
-        "windowEndDate": first_date + timedelta(days=13),
+        "windowEndDate": last_date,
         "days": days,
     }

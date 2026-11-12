@@ -172,7 +172,11 @@ def test_initial_preparation_is_empty_and_repeated_preparation_preserves_owner(
         ]
         assert connection.execute(
             "SELECT version FROM schema_migrations ORDER BY version"
-        ).fetchall() == [("001_owner_and_meeting_types.sql",), ("002_bookings.sql",)]
+        ).fetchall() == [
+            ("001_owner_and_meeting_types.sql",),
+            ("002_bookings.sql",),
+            ("003_booking_keys.sql",),
+        ]
 
 
 def test_duplicate_never_changes_stored_type(database):

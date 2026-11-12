@@ -8,14 +8,14 @@ beforeEach(() => {
 });
 afterEach(() => { window.history.replaceState(null, '', '/'); vi.unstubAllGlobals(); });
 
-test('главная объясняет сервис гостю и предупреждает о недоступности записи', () => {
+test('главная объясняет сервис гостю и ведёт к онлайн-записи', () => {
   const wrapper = mount(App, { attachTo: document.body });
 
   try {
     expect(document.body.contains(wrapper.element)).toBe(true);
     expect(wrapper.get('h1').text()).toBe('Выберите удобное время для звонка.');
     expect(wrapper.get('main').text()).toContain('без регистрации');
-    expect(wrapper.get('main').text()).toContain('Онлайн-запись пока недоступна.');
+    expect(wrapper.get('main').text()).toContain('Выберите свободное время и подтвердите запись онлайн.');
     expect(wrapper.get('a[href="#/booking"]').text()).toContain('Записаться');
   } finally {
     wrapper.unmount();

@@ -132,3 +132,45 @@ op getAvailability(@path id: MeetingTypeId):
   | ErrorResponse<422>
   | ErrorResponse<503>
   | ErrorResponse<500>;
+
+model BookingRequest {
+  meetingTypeId: MeetingTypeId;
+
+  @doc("RFC 3339 со смещением или Z; эквивалентные моменты равнозначны.")
+  startsAt: utcDateTime;
+}
+
+model Booking {
+  @format("uuid") id: string;
+  meetingTypeId: MeetingTypeId;
+  meetingTypeName: MeetingTypeName;
+  startsAt: utcDateTime;
+  endsAt: utcDateTime;
+  durationMinutes: DurationMinutes;
+  timeZone: "Europe/Moscow";
+}
+
+@route("/api/bookings")
+@post
+op createBooking(
+  @header contentType: "application/json",
+  @header("Idempotency-Key") @format("uuid") idempotencyKey: string,
+  @body body: BookingRequest,
+):
+  | {
+      @statusCode statusCode: 201;
+      @header cacheControl: "no-store";
+      @body body: Booking;
+    }
+  | {
+      @statusCode statusCode: 200;
+      @header cacheControl: "no-store";
+      @body body: Booking;
+    }
+  | ErrorResponse<400>
+  | ErrorResponse<404>
+  | ErrorResponse<409>
+  | ErrorResponse<415>
+  | ErrorResponse<422>
+  | ErrorResponse<503>
+  | ErrorResponse<500>;

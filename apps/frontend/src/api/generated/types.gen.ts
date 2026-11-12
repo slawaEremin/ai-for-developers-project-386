@@ -45,6 +45,24 @@ export type AvailableSlot = {
     endsAt: string;
 };
 
+export type Booking = {
+    id: string;
+    meetingTypeId: MeetingTypeId;
+    meetingTypeName: MeetingTypeName;
+    startsAt: string;
+    endsAt: string;
+    durationMinutes: DurationMinutes;
+    timeZone: 'Europe/Moscow';
+};
+
+export type BookingRequest = {
+    meetingTypeId: MeetingTypeId;
+    /**
+     * RFC 3339 со смещением или Z; эквивалентные моменты равнозначны.
+     */
+    startsAt: string;
+};
+
 export type DurationMinutes = number;
 
 export type HealthResponse = {
@@ -74,6 +92,62 @@ export type MeetingTypeList = {
  * Однострочный обычный текст; края очищаются от пробелов, длина в Unicode.
  */
 export type MeetingTypeName = string;
+
+export type CreateBookingData = {
+    body: BookingRequest;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/bookings';
+};
+
+export type CreateBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: ApiError;
+    /**
+     * Client error
+     */
+    415: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
+
+export type CreateBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Booking;
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: Booking;
+};
+
+export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
 
 export type ListMeetingTypesData = {
     body?: never;

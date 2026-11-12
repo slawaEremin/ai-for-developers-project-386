@@ -11,12 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
 from app.availability import router as availability_router
+from app.bookings import router as bookings_router
 from app.generated.models import HealthResponse
 from app.meeting_types import router
 
 app = FastAPI(title="Календарь звонков")
 app.include_router(router)
 app.include_router(availability_router)
+app.include_router(bookings_router)
 
 
 def api_error(status, code, message, field_errors=None):

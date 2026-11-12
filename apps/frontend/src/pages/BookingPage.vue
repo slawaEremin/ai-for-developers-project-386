@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getMeetingType, listMeetingTypes } from '../api/generated/sdk.gen';
 import type { MeetingType } from '../api/generated/types.gen';
 
+const bookingLocked = ref(false);
 const items = ref<MeetingType[]>([]);
 const loading = ref(true);
 const catalogError = ref(false);
@@ -25,6 +26,10 @@ async function loadCatalog() {
 }
 
 async function selectFromAddress() {
+  if (bookingLocked.value) {
+    window.history.replaceState(null, '', `/#/booking?type=${encodeURIComponent(selected.value!.id)}`);
+    return;
+  }
   const id = new URLSearchParams(window.location.hash.split('?')[1]).get('type');
   const request = ++selectionRequest;
   selected.value = null;
@@ -106,6 +111,7 @@ onBeforeUnmount(() => {
           </p>
           <p>{{ item.durationMinutes }} минут</p>
           <a
+            v-if="!bookingLocked"
             class="button button-secondary"
             :href="`#/booking?type=${encodeURIComponent(item.id)}`"
           >Выбрать «{{ item.name }}»</a>
@@ -144,6 +150,9 @@ onBeforeUnmount(() => {
       <AvailabilityCalendar
         :key="selected.id"
         :meeting-type-id="selected.id"
+        :meeting-type-name="selected.name"
+        :duration-minutes="selected.durationMinutes"
+        @locked="bookingLocked = $event"
       />
     </section>
     <a href="#/">Вернуться на главную</a>

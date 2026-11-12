@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { getAvailability } from '../api/generated/sdk.gen';
-import type { Availability, AvailableSlot } from '../api/generated/types.gen';
+import { createBooking, getAvailability } from '../api/generated/sdk.gen';
+import type { Availability, AvailableSlot, Booking } from '../api/generated/types.gen';
 
-const props = defineProps<{ meetingTypeId: string }>();
+const props = defineProps<{ meetingTypeId: string; meetingTypeName: string; durationMinutes: number }>();
+const emit = defineEmits<{ locked: [value: boolean] }>();
+const pending = ref(false);
+const unknown = ref(false);
+const confirmed = ref<Booking | null>(null);
+let attempt: { key: string; startsAt: string } | null = null;
+const locked = computed(() => pending.value || unknown.value);
 const data = ref<Availability | null>(null);
 const selectedDate = ref('');
 const selectedSlot = ref<AvailableSlot | null>(null);
@@ -17,8 +23,8 @@ const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow',
 const timeFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 function dateLabel(date: string) { return dateFormat.format(new Date(`${date}T09:00:00+03:00`)); }
 function interval(slot: AvailableSlot) { return `${timeFormat.format(new Date(slot.startsAt))}–${timeFormat.format(new Date(slot.endsAt))}`; }
-function chooseSlot(slot: AvailableSlot) { selectedSlot.value = slot; notice.value = ''; }
-function chooseDate(date: string) { selectedDate.value = date; selectedSlot.value = null; notice.value = ''; }
+function chooseSlot(slot: AvailableSlot) { if (locked.value) return; selectedSlot.value = slot; notice.value = ''; }
+function chooseDate(date: string) { if (locked.value) return; selectedDate.value = date; selectedSlot.value = null; notice.value = ''; }
 function scheduleRollover(serverTime: string) {
   clearTimeout(rolloverTimer);
   const now = new Date(serverTime);
@@ -27,6 +33,7 @@ function scheduleRollover(serverTime: string) {
   rolloverTimer = setTimeout(() => { void refresh(); }, Math.max(1, midnight - now.getTime()));
 }
 async function refresh() {
+  if (locked.value || confirmed.value) return;
   const current = ++request;
   loading.value = true;
   failed.value = false;
@@ -46,6 +53,48 @@ async function refresh() {
   } catch { if (current === request) failed.value = true; }
   finally { if (current === request) loading.value = false; }
 }
+function isBooking(value: Booking): boolean {
+  return typeof value.id === 'string' && /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(value.id)
+    && value.meetingTypeId === props.meetingTypeId && typeof value.meetingTypeName === 'string'
+    && value.durationMinutes === props.durationMinutes && value.timeZone === 'Europe/Moscow'
+    && Number.isFinite(Date.parse(value.startsAt)) && Date.parse(value.startsAt) === Date.parse(attempt!.startsAt)
+    && Date.parse(value.endsAt) - Date.parse(value.startsAt) === value.durationMinutes * 60000;
+}
+async function confirmBooking() {
+  if (pending.value || (!attempt && !selectedSlot.value)) return;
+  attempt ??= { key: crypto.randomUUID(), startsAt: selectedSlot.value!.startsAt };
+  pending.value = true;
+  unknown.value = false;
+  emit('locked', true);
+  try {
+    const result = await createBooking({ baseUrl: window.location.origin,
+      headers: { 'Idempotency-Key': attempt.key },
+      body: { meetingTypeId: props.meetingTypeId, startsAt: attempt.startsAt } });
+    if ((result.response?.status === 200 || result.response?.status === 201) && result.data && isBooking(result.data)) {
+      confirmed.value = result.data;
+      selectedSlot.value = null;
+      attempt = null;
+      notice.value = '';
+    } else if (result.error && ['SLOT_CONFLICT', 'OUTSIDE_BOOKING_WINDOW', 'INVALID_SLOT', 'MEETING_TYPE_NOT_FOUND', 'IDEMPOTENCY_KEY_REUSED', 'VALIDATION_ERROR'].includes(result.error.code)
+      && typeof result.error.message === 'string' && result.error.message.length > 0
+      && ({ SLOT_CONFLICT: 409, OUTSIDE_BOOKING_WINDOW: 422, INVALID_SLOT: 422, MEETING_TYPE_NOT_FOUND: 404, IDEMPOTENCY_KEY_REUSED: 409, VALIDATION_ERROR: 422 } as Record<string, number>)[result.error.code] === result.response?.status) {
+      notice.value = result.error.code === 'SLOT_CONFLICT' ? 'Это время уже занято. Выберите другой слот' : result.error.message;
+      selectedSlot.value = null;
+      attempt = null;
+    } else { unknown.value = true; }
+  } catch { unknown.value = true; }
+  finally {
+    pending.value = false;
+    emit('locked', unknown.value);
+    if (!unknown.value && !confirmed.value) await refresh();
+  }
+}
+async function chooseAnother() {
+  confirmed.value = null;
+  selectedSlot.value = null;
+  notice.value = '';
+  await refresh();
+}
 function onVisibility() { if (document.visibilityState === 'visible') void refresh(); }
 onMounted(() => {
   void refresh();
@@ -64,8 +113,22 @@ onBeforeUnmount(() => {
   <section aria-label="Календарь">
     <h3>Календарь</h3>
     <p>Московское время (Europe/Moscow), UTC+03:00</p>
+    <section
+      v-if="confirmed"
+      aria-label="Запись подтверждена"
+      role="status"
+    >
+      <h4>Запись подтверждена</h4>
+      <p>{{ confirmed.meetingTypeName }}. {{ dateLabel(confirmed.startsAt.slice(0, 10)) }}, {{ interval(confirmed) }}. {{ confirmed.durationMinutes }} минут. Московское время (Europe/Moscow).</p>
+      <button
+        class="button button-secondary"
+        @click="chooseAnother"
+      >
+        Выбрать другое время
+      </button>
+    </section>
     <p
-      v-if="loading"
+      v-else-if="loading"
       role="status"
     >
       Загрузка доступности…
@@ -102,6 +165,7 @@ onBeforeUnmount(() => {
           class="button button-secondary"
           :data-date="item.date"
           :aria-pressed="selectedDate === item.date"
+          :disabled="locked"
           @click="chooseDate(item.date)"
         >
           {{ dateLabel(item.date) }}
@@ -123,6 +187,7 @@ onBeforeUnmount(() => {
           class="button button-secondary"
           :data-slot="slot.startsAt"
           :aria-pressed="selectedSlot?.startsAt === slot.startsAt"
+          :disabled="locked"
           @click="chooseSlot(slot)"
         >
           {{ interval(slot) }}
@@ -131,10 +196,36 @@ onBeforeUnmount(() => {
       <p
         v-if="selectedSlot"
         role="status"
+        aria-label="Итог записи"
       >
-        Выбрано: {{ dateLabel(selectedDate) }}, {{ interval(selectedSlot) }}. Московское время (Europe/Moscow).
+        Выбрано: {{ meetingTypeName }}, {{ durationMinutes }} минут, {{ dateLabel(selectedDate) }}, {{ interval(selectedSlot) }}. Московское время (Europe/Moscow).
       </p>
-      <p>Подтверждение записи скоро появится.</p>
+      <p
+        v-if="pending"
+        role="status"
+      >
+        Подтверждаем запись…
+      </p>
+      <div
+        v-if="unknown"
+        role="alert"
+      >
+        <p>Результат записи неизвестен. Повторите подтверждение той же попытки.</p>
+        <button
+          class="button button-secondary"
+          @click="confirmBooking"
+        >
+          Повторить подтверждение
+        </button>
+      </div>
+      <button
+        v-else
+        class="button button-primary"
+        :disabled="!selectedSlot || loading || pending"
+        @click="confirmBooking"
+      >
+        Подтвердить запись
+      </button>
     </template>
   </section>
 </template>

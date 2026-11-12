@@ -32,10 +32,44 @@ export type MeetingTypeDescription = string;
 
 export type MeetingTypeId = string;
 
+export type MeetingTypeList = {
+    serverTime: string;
+    items: Array<MeetingType>;
+};
+
 /**
  * Однострочный обычный текст; края очищаются от пробелов, длина в Unicode.
  */
 export type MeetingTypeName = string;
+
+export type ListMeetingTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type ListMeetingTypesErrors = {
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type ListMeetingTypesError = ListMeetingTypesErrors[keyof ListMeetingTypesErrors];
+
+export type ListMeetingTypesResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeList;
+};
+
+export type ListMeetingTypesResponse = ListMeetingTypesResponses[keyof ListMeetingTypesResponses];
 
 export type CreateMeetingTypeData = {
     body: MeetingType;
@@ -81,6 +115,45 @@ export type CreateMeetingTypeResponses = {
 };
 
 export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
+
+export type GetMeetingTypeData = {
+    body?: never;
+    path: {
+        id: MeetingTypeId;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}';
+};
+
+export type GetMeetingTypeErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type GetMeetingTypeError = GetMeetingTypeErrors[keyof GetMeetingTypeErrors];
+
+export type GetMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingType;
+};
+
+export type GetMeetingTypeResponse = GetMeetingTypeResponses[keyof GetMeetingTypeResponses];
 
 export type GetHealthData = {
     body?: never;

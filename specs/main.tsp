@@ -69,3 +69,32 @@ op createMeetingType(
   | ErrorResponse<422>
   | ErrorResponse<503>
   | ErrorResponse<500>;
+
+model MeetingTypeList {
+  serverTime: utcDateTime;
+  items: MeetingType[];
+}
+
+@route("/api/meeting-types")
+@get
+op listMeetingTypes():
+  | {
+      @statusCode statusCode: 200;
+      @header cacheControl: "no-store";
+      @body body: MeetingTypeList;
+    }
+  | ErrorResponse<503>
+  | ErrorResponse<500>;
+
+@route("/api/meeting-types/{id}")
+@get
+op getMeetingType(@path id: MeetingTypeId):
+  | {
+      @statusCode statusCode: 200;
+      @header cacheControl: "no-store";
+      @body body: MeetingType;
+    }
+  | ErrorResponse<404>
+  | ErrorResponse<422>
+  | ErrorResponse<503>
+  | ErrorResponse<500>;

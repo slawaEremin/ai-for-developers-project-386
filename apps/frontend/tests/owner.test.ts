@@ -93,6 +93,7 @@ test('при потере ответа владелец сохраняет вв�
     await wrapper.get('form').trigger('submit');
     await flushPromises();
     expect(wrapper.get('[role="alert"]').text()).toContain('Проверьте каталог');
+    expect(wrapper.get('[role="alert"] a').attributes('href')).toBe('#/booking?type=consultation');
     expect(wrapper.get<HTMLInputElement>('#meeting-id').element.value).toBe('consultation');
     expect(fetch).toHaveBeenCalledOnce();
   } finally { wrapper.unmount(); }

@@ -8,6 +8,7 @@ const errors = ref<Record<string, string>>({});
 const attempted = ref(false);
 const pending = ref(false);
 const message = ref('');
+const unknownId = ref<string | null>(null);
 const created = ref<MeetingType | null>(null);
 
 function validate() {
@@ -47,9 +48,11 @@ async function submit() {
   if (pending.value) return;
   attempted.value = true;
   message.value = '';
+  unknownId.value = null;
   created.value = null;
   if (!validate()) return;
   pending.value = true;
+  const submittedId = form.id;
   try {
     const result = await createMeetingType({
       baseUrl: window.location.origin,
@@ -66,8 +69,10 @@ async function submit() {
       message.value = result.error?.code && result.response && result.response.status < 500
         ? result.error.message
         : 'Результат создания неизвестен. Проверьте каталог перед повторной отправкой.';
+      if (!result.error?.code || !result.response || result.response.status >= 500) unknownId.value = submittedId;
     }
   } catch {
+    unknownId.value = submittedId;
     message.value = 'Результат создания неизвестен. Проверьте каталог перед повторной отправкой.';
   } finally { pending.value = false; }
 }
@@ -166,7 +171,10 @@ async function submit() {
       v-if="message"
       role="alert"
     >
-      {{ message }} <a href="#/booking">Открыть каталог</a>
+      {{ message }} <a
+        v-if="unknownId"
+        :href="`#/booking?type=${encodeURIComponent(unknownId)}`"
+      >Проверить id «{{ unknownId }}» в каталоге</a>
     </p>
     <p
       v-if="created"

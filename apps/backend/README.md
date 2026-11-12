@@ -26,7 +26,12 @@ uv run --locked uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 При недоступной БД работающий API возвращает 503, без хранения в памяти.
 
 Реализованы `GET /health` с ответом `{"status":"ok"}` и
-`POST /api/meeting-types` с ответом 201. Тип сохраняется в PostgreSQL.
+`POST /api/meeting-types` с ответом 201. Тип сохраняется в PostgreSQL. `GET /api/meeting-types` возвращает
+`serverTime` в UTC и `items` с полными типами (пустой каталог — пустой массив).
+Порядок — название, затем id, по кодовым точкам Unicode с учётом регистра.
+`GET /api/meeting-types/{id}` возвращает один тип без оболочки:
+неправильный формат id даёт 422, отсутствующий корректный id — 404
+с кодом `MEETING_TYPE_NOT_FOUND`.
 Повторный id даёт 409, некорректные поля — 422, JSON — 400,
 неподдерживаемый Content-Type — 415. Ошибки имеют `code`, `message`
 и при необходимости `fieldErrors`; ответы `/api/*` имеют `Cache-Control: no-store`.

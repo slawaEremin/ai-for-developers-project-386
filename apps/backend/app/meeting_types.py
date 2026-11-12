@@ -1,12 +1,14 @@
 import re
+from datetime import UTC
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Path
 from fastapi.responses import JSONResponse
 from psycopg.errors import UniqueViolation
 from pydantic import field_validator
 
 from app.database import connect
-from app.generated.models import MeetingType
+from app.generated.models import MeetingType, MeetingTypeList
 
 router = APIRouter()
 
@@ -57,3 +59,51 @@ def create_meeting_type(body: CreateMeetingType):
             },
         )
     return body
+
+
+@router.get(
+    "/api/meeting-types",
+    response_model=MeetingTypeList,
+    operation_id="listMeetingTypes",
+)
+def list_meeting_types():
+    with connect() as connection:
+        server_time = connection.execute("SELECT clock_timestamp() AS time").fetchone()[
+            "time"
+        ]
+        items = connection.execute(
+            'SELECT id, name, description, duration_minutes AS "durationMinutes" '
+            "FROM meeting_types"
+        ).fetchall()
+    return {
+        "serverTime": server_time.astimezone(UTC),
+        "items": sorted(items, key=lambda item: (item["name"], item["id"])),
+    }
+
+
+@router.get(
+    "/api/meeting-types/{id}", response_model=MeetingType, operation_id="getMeetingType"
+)
+def get_meeting_type(
+    id: Annotated[
+        str,
+        Path(
+            min_length=1, max_length=64, pattern=r"^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$"
+        ),
+    ],
+):
+    with connect() as connection:
+        item = connection.execute(
+            'SELECT id, name, description, duration_minutes AS "durationMinutes" '
+            "FROM meeting_types WHERE id = %s",
+            (id,),
+        ).fetchone()
+    if item is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "code": "MEETING_TYPE_NOT_FOUND",
+                "message": "Тип встречи не найден",
+            },
+        )
+    return item

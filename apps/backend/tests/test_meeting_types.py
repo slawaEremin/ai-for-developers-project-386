@@ -239,3 +239,98 @@ def test_invalid_utf8_is_a_bad_json_request():
         assert result.status_code == 400
         assert result.json()["code"] == "BAD_REQUEST"
         assert result.headers["cache-control"] == "no-store"
+
+
+def test_catalog_is_empty_then_created_type_is_available_after_restart():
+    with TestClient(app) as client:
+        empty = client.get("/api/meeting-types")
+        assert empty.status_code == 200
+        assert empty.json()["items"] == []
+        assert empty.json()["serverTime"].endswith("Z")
+        assert empty.headers["cache-control"] == "no-store"
+        assert client.post("/api/meeting-types", json=PAYLOAD).status_code == 201
+    prepare_database()
+    with TestClient(app) as restarted:
+        catalog = restarted.get("/api/meeting-types")
+        assert catalog.json()["items"] == [PAYLOAD]
+        single = restarted.get("/api/meeting-types/consultation")
+        assert single.status_code == 200
+        assert single.json() == PAYLOAD
+        assert single.headers["cache-control"] == "no-store"
+        assert single.headers["content-type"] == "application/json"
+
+
+def test_catalog_orders_names_then_ids_by_unicode_code_point():
+    with TestClient(app) as client:
+        for id, name in [
+            ("z", "a"),
+            ("emoji", "😀"),
+            ("b", "a"),
+            ("cyrillic", "Я"),
+            ("capital", "A"),
+            ("bmp", "\ue000"),
+        ]:
+            assert (
+                client.post(
+                    "/api/meeting-types", json={**PAYLOAD, "id": id, "name": name}
+                ).status_code
+                == 201
+            )
+        response = client.get("/api/meeting-types")
+        assert [item["id"] for item in response.json()["items"]] == [
+            "capital",
+            "b",
+            "z",
+            "cyrillic",
+            "bmp",
+            "emoji",
+        ]
+
+
+@pytest.mark.parametrize(
+    ("id", "status", "code"),
+    [
+        ("Missing", 422, "VALIDATION_ERROR"),
+        ("a-", 422, "VALIDATION_ERROR"),
+        ("a" * 65, 422, "VALIDATION_ERROR"),
+        ("missing--type", 404, "MEETING_TYPE_NOT_FOUND"),
+    ],
+)
+def test_get_type_distinguishes_invalid_id_and_missing_type(id, status, code):
+    with TestClient(app) as client:
+        response = client.get("/api/meeting-types/" + id)
+        assert response.status_code == status
+        assert response.json()["code"] == code
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["content-type"] == "application/json"
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/meeting-types", "/api/meeting-types/consultation"]
+)
+def test_reading_types_reports_database_outage(path, monkeypatch):
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://calendar:calendar@127.0.0.1:1/calendar"
+    )
+    with TestClient(app) as client:
+        response = client.get(path)
+        assert response.status_code == 503
+        assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+        assert response.headers["cache-control"] == "no-store"
+
+
+def test_catalog_server_time_is_utc_regardless_of_database_session_zone(
+    database, monkeypatch
+):
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        make_conninfo(
+            database,
+            options=psycopg.conninfo.conninfo_to_dict(database)["options"]
+            + " -c timezone=Europe/Moscow",
+        ),
+    )
+    with TestClient(app) as client:
+        response = client.get("/api/meeting-types")
+        assert response.status_code == 200
+        assert response.json()["serverTime"].endswith("Z")

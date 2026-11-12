@@ -3,6 +3,10 @@
 Источник контракта — `main.tsp`. Сейчас описаны `GET /health` с ответом
 `{"status":"ok"}` и `POST /api/meeting-types` с ответом 201 и объектом
 `id`, `name`, `description`, `durationMinutes`.
+`GET /api/meeting-types` возвращает `serverTime` в UTC и `items` с типами;
+порядок — name, затем id, по кодовым точкам Unicode с учётом регистра.
+`GET /api/meeting-types/{id}` возвращает тип без оболочки. Неправильный id —
+422, корректный отсутствующий — 404 / `MEETING_TYPE_NOT_FOUND`.
 
 Идентификатор содержит 1–64 строчных латинских букв, цифр и дефисов, по краям
 буква или цифра. После удаления пробелов по краям название содержит 1–120
@@ -12,7 +16,7 @@
 
 POST принимает `application/json`. Ошибки 400/409/415/422/503/500 содержат
 `code`, `message` и при необходимости `fieldErrors`. Ответы календаря имеют
-`Cache-Control: no-store`. Остальные операции календаря добавляются следующими
+`Cache-Control: no-store`. Доступность и бронирование добавляются следующими
 задачами спецификации.
 
 `make generate` создаёт `specs/generated/openapi.json`,

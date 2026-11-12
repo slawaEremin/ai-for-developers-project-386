@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, conint, constr
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
 
 
 class ApiError(BaseModel):
@@ -43,3 +43,11 @@ class MeetingType(BaseModel):
         description="Обычный текст с внутренними переносами; края очищаются от пробелов.",
     )
     durationMinutes: conint(ge=1, le=540)
+
+
+class MeetingTypeList(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    serverTime: AwareDatetime
+    items: list[MeetingType]

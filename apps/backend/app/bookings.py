@@ -2,12 +2,14 @@
 
 import re
 from datetime import UTC, timedelta
+from time import monotonic
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Response
 from fastapi.responses import JSONResponse
-from psycopg.errors import ExclusionViolation
+from psycopg import IsolationLevel
+from psycopg.errors import DeadlockDetected, ExclusionViolation, SerializationFailure
 from pydantic import field_validator
 
 from app.availability import MOSCOW
@@ -127,12 +129,19 @@ def create_booking(
     ],
     clock=Depends(calendar_clock),
 ):
+    deadline = monotonic() + 10
     try:
-        with connect() as connection:
-            connection.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
-            booking, created = create_booking_transaction(
-                connection, body, UUID(idempotency_key), clock
-            )
+        for execution in range(3):
+            try:
+                with connect(deadline=deadline) as connection:
+                    connection.isolation_level = IsolationLevel.READ_COMMITTED
+                    booking, created = create_booking_transaction(
+                        connection, body, UUID(idempotency_key), clock
+                    )
+                break
+            except (DeadlockDetected, SerializationFailure):
+                if execution == 2:
+                    raise
         # Выход из context manager завершил COMMIT до отправки успеха.
         response.status_code = 201 if created else 200
         return booking

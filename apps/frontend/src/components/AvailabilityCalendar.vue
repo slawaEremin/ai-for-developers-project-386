@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { clearAttempt, restoreAttempt, saveAttempt, type BookingAttempt } from '../bookingAttempt';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createBooking, getAvailability } from '../api/generated/sdk.gen';
 import type { Availability, AvailableSlot, Booking } from '../api/generated/types.gen';
@@ -8,15 +9,21 @@ const emit = defineEmits<{ locked: [value: boolean] }>();
 const pending = ref(false);
 const unknown = ref(false);
 const confirmed = ref<Booking | null>(null);
-let attempt: { key: string; startsAt: string } | null = null;
+let attempt: BookingAttempt | null = null;
+const storageFailed = ref(false);
+try { attempt = restoreAttempt(); unknown.value = !!attempt; } catch { storageFailed.value = true; }
+if (attempt) emit('locked', true);
 const locked = computed(() => pending.value || unknown.value);
 const data = ref<Availability | null>(null);
-const selectedDate = ref('');
+const selectedDate = ref(attempt?.startsAt.slice(0, 10) ?? '');
 const selectedSlot = ref<AvailableSlot | null>(null);
 const loading = ref(true);
 const failed = ref(false);
 const notice = ref('');
 let request = 0;
+let bookingRequest = 0;
+let bookingController: AbortController | undefined;
+let bookingTimer: ReturnType<typeof setTimeout> | undefined;
 let rolloverTimer: ReturnType<typeof setTimeout> | undefined;
 const day = computed(() => data.value?.days.find((item) => item.date === selectedDate.value));
 const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', year: 'numeric' });
@@ -55,24 +62,41 @@ async function refresh() {
 }
 function isBooking(value: Booking): boolean {
   return typeof value.id === 'string' && /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(value.id)
-    && value.meetingTypeId === props.meetingTypeId && typeof value.meetingTypeName === 'string'
+    && value.meetingTypeId === attempt!.meetingTypeId && typeof value.meetingTypeName === 'string'
     && value.durationMinutes === props.durationMinutes && value.timeZone === 'Europe/Moscow'
     && Number.isFinite(Date.parse(value.startsAt)) && Date.parse(value.startsAt) === Date.parse(attempt!.startsAt)
     && Date.parse(value.endsAt) - Date.parse(value.startsAt) === value.durationMinutes * 60000;
 }
 async function confirmBooking() {
-  if (pending.value || (!attempt && !selectedSlot.value)) return;
-  attempt ??= { key: crypto.randomUUID(), startsAt: selectedSlot.value!.startsAt };
+  if (pending.value || storageFailed.value || (!attempt && !selectedSlot.value)) return;
+  if (!attempt) {
+    const original = { key: crypto.randomUUID(), meetingTypeId: props.meetingTypeId, startsAt: selectedSlot.value!.startsAt, meetingTypeName: props.meetingTypeName, durationMinutes: props.durationMinutes };
+    try { saveAttempt(original); attempt = original; }
+    catch { storageFailed.value = true; return; }
+  }
   pending.value = true;
   unknown.value = false;
   emit('locked', true);
+  const current = ++bookingRequest;
+  bookingController = new AbortController();
+  bookingTimer = setTimeout(() => {
+    if (current !== bookingRequest) return;
+    bookingRequest++;
+    bookingController?.abort();
+    pending.value = false;
+    unknown.value = true;
+    emit('locked', true);
+  }, 15000);
+  const timer = bookingTimer;
   try {
-    const result = await createBooking({ baseUrl: window.location.origin,
+    const result = await createBooking({ baseUrl: window.location.origin, signal: bookingController.signal,
       headers: { 'Idempotency-Key': attempt.key },
-      body: { meetingTypeId: props.meetingTypeId, startsAt: attempt.startsAt } });
+      body: { meetingTypeId: attempt.meetingTypeId, startsAt: attempt.startsAt } });
+    if (current !== bookingRequest) return;
     if ((result.response?.status === 200 || result.response?.status === 201) && result.data && isBooking(result.data)) {
       confirmed.value = result.data;
       selectedSlot.value = null;
+      try { clearAttempt(); } catch { storageFailed.value = true; }
       attempt = null;
       notice.value = '';
     } else if (result.error && ['SLOT_CONFLICT', 'OUTSIDE_BOOKING_WINDOW', 'INVALID_SLOT', 'MEETING_TYPE_NOT_FOUND', 'IDEMPOTENCY_KEY_REUSED', 'VALIDATION_ERROR'].includes(result.error.code)
@@ -80,13 +104,17 @@ async function confirmBooking() {
       && ({ SLOT_CONFLICT: 409, OUTSIDE_BOOKING_WINDOW: 422, INVALID_SLOT: 422, MEETING_TYPE_NOT_FOUND: 404, IDEMPOTENCY_KEY_REUSED: 409, VALIDATION_ERROR: 422 } as Record<string, number>)[result.error.code] === result.response?.status) {
       notice.value = result.error.code === 'SLOT_CONFLICT' ? 'Это время уже занято. Выберите другой слот' : result.error.message;
       selectedSlot.value = null;
+      try { clearAttempt(); } catch { storageFailed.value = true; }
       attempt = null;
     } else { unknown.value = true; }
-  } catch { unknown.value = true; }
+  } catch { if (current === bookingRequest) unknown.value = true; }
   finally {
-    pending.value = false;
-    emit('locked', unknown.value);
-    if (!unknown.value && !confirmed.value) await refresh();
+    clearTimeout(timer);
+    if (current === bookingRequest) {
+      pending.value = false;
+      emit('locked', unknown.value);
+      if (!unknown.value && !confirmed.value) await refresh();
+    }
   }
 }
 async function chooseAnother() {
@@ -103,6 +131,9 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   request++;
+  bookingRequest++;
+  bookingController?.abort();
+  clearTimeout(bookingTimer);
   clearTimeout(rolloverTimer);
   window.removeEventListener('focus', refresh);
   document.removeEventListener('visibilitychange', onVisibility);
@@ -112,6 +143,12 @@ onBeforeUnmount(() => {
 <template>
   <section aria-label="Календарь">
     <h3>Календарь</h3>
+    <p
+      v-if="storageFailed"
+      role="alert"
+    >
+      Не удалось сохранить попытку в этой вкладке. Подтверждение недоступно. Проверьте доступность хранилища и перезагрузите страницу.
+    </p>
     <p>Московское время (Europe/Moscow), UTC+03:00</p>
     <section
       v-if="confirmed"
@@ -127,6 +164,27 @@ onBeforeUnmount(() => {
         Выбрать другое время
       </button>
     </section>
+    <div
+      v-else-if="unknown"
+      role="alert"
+    >
+      <p>Результат записи неизвестен. Повторите подтверждение той же попытки.</p>
+      <p v-if="attempt">
+        {{ attempt.meetingTypeName }}, {{ dateLabel(attempt.startsAt.slice(0, 10)) }}, {{ timeFormat.format(new Date(attempt.startsAt)) }}. Московское время (Europe/Moscow).
+      </p>
+      <button
+        class="button button-secondary"
+        @click="confirmBooking"
+      >
+        Повторить подтверждение
+      </button>
+    </div>
+    <p
+      v-else-if="pending && !data"
+      role="status"
+    >
+      Подтверждаем запись…
+    </p>
     <p
       v-else-if="loading"
       role="status"
@@ -206,22 +264,9 @@ onBeforeUnmount(() => {
       >
         Подтверждаем запись…
       </p>
-      <div
-        v-if="unknown"
-        role="alert"
-      >
-        <p>Результат записи неизвестен. Повторите подтверждение той же попытки.</p>
-        <button
-          class="button button-secondary"
-          @click="confirmBooking"
-        >
-          Повторить подтверждение
-        </button>
-      </div>
       <button
-        v-else
         class="button button-primary"
-        :disabled="!selectedSlot || loading || pending"
+        :disabled="!selectedSlot || loading || pending || storageFailed"
         @click="confirmBooking"
       >
         Подтвердить запись

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { restoreAttempt } from '../bookingAttempt';
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getMeetingType, listMeetingTypes } from '../api/generated/sdk.gen';
@@ -13,6 +14,13 @@ const selectionLoading = ref(false);
 const selectionFailed = ref(false);
 let selectionRequest = 0;
 const selected = ref<MeetingType | null>(null);
+try {
+  const saved = restoreAttempt();
+  if (saved) {
+    selected.value = { id: saved.meetingTypeId, name: saved.meetingTypeName, durationMinutes: saved.durationMinutes, description: '' };
+    bookingLocked.value = true;
+  }
+} catch { /* Календарь покажет ошибку хранилища и заблокирует отправку. */ }
 
 async function loadCatalog() {
   loading.value = true;

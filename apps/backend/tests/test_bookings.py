@@ -405,3 +405,264 @@ def test_successful_key_survives_preparation_and_other_type_cannot_reuse_it(
     repeated = post(client, key=key)
     assert repeated.status_code == 200
     assert repeated.json() == original.json()
+
+
+@pytest.mark.parametrize("sqlstate", ["40P01", "40001"])
+@pytest.mark.parametrize("at_commit", [False, True])
+def test_transaction_rollback_retries_entire_booking_at_most_three_times(
+    database, booking_client, sqlstate, at_commit
+):
+    import psycopg
+
+    client, _ = booking_client
+    with psycopg.connect(database) as connection:
+        connection.execute("CREATE SEQUENCE retry_executions")
+        connection.execute(
+            "CREATE FUNCTION retry_key() RETURNS trigger LANGUAGE plpgsql AS $$ "
+            "BEGIN IF nextval('retry_executions') < 3 THEN "
+            f"RAISE EXCEPTION 'retry rollback' USING ERRCODE = '{sqlstate}'; "
+            "END IF; RETURN NEW; END $$"
+        )
+        connection.execute(
+            "CREATE CONSTRAINT TRIGGER retry_key AFTER INSERT ON booking_keys DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION retry_key()"
+            if at_commit
+            else "CREATE TRIGGER retry_key BEFORE INSERT ON booking_keys FOR EACH ROW EXECUTE FUNCTION retry_key()"
+        )
+    key = str(uuid4())
+    result = post(client, key=key)
+    assert result.status_code == 201
+    assert post(client, key=key).json() == result.json()
+    assert counts(database) == (1, 1)
+    with psycopg.connect(database) as connection:
+        assert (
+            connection.execute("SELECT last_value FROM retry_executions").fetchone()[0]
+            == 3
+        )
+
+
+def test_retry_exhaustion_returns_unavailable_after_three_total_executions(
+    database, booking_client
+):
+    import psycopg
+
+    with psycopg.connect(database) as connection:
+        connection.execute("CREATE SEQUENCE retry_count")
+        connection.execute(
+            "CREATE FUNCTION fail_retry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM nextval('retry_count'); RAISE EXCEPTION 'rollback' USING ERRCODE = '40001'; END $$"
+        )
+        connection.execute(
+            "CREATE TRIGGER fail_retry BEFORE INSERT ON booking_keys FOR EACH ROW EXECUTE FUNCTION fail_retry()"
+        )
+    response = post(booking_client[0])
+    assert response.status_code == 503
+    assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+    with psycopg.connect(database) as connection:
+        assert (
+            connection.execute("SELECT last_value FROM retry_count").fetchone()[0] == 3
+        )
+    assert counts(database) == (0, 0)
+
+
+def test_one_ten_second_budget_covers_all_transaction_executions(
+    database, booking_client
+):
+    import time
+
+    import psycopg
+
+    with psycopg.connect(database) as connection:
+        connection.execute("CREATE SEQUENCE timed_executions")
+        connection.execute(
+            "CREATE FUNCTION slow_retry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM nextval('timed_executions'); PERFORM pg_sleep(4); RAISE EXCEPTION 'rollback' USING ERRCODE = '40001'; END $$"
+        )
+        connection.execute(
+            "CREATE TRIGGER slow_retry BEFORE INSERT ON booking_keys FOR EACH ROW EXECUTE FUNCTION slow_retry()"
+        )
+    start = time.monotonic()
+    response = post(booking_client[0])
+    elapsed = time.monotonic() - start
+    assert response.status_code == 503
+    assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+    assert 7.5 <= elapsed < 11.5
+    assert counts(database) == (0, 0)
+
+
+def test_owner_lock_wait_is_bounded_by_one_ten_second_budget(database, booking_client):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    import psycopg
+
+    with (
+        psycopg.connect(database) as holder,
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        holder.execute("SELECT id FROM owners WHERE id = 1 FOR UPDATE")
+        start = time.monotonic()
+        future = executor.submit(post, booking_client[0])
+        wait_blocked(database, holder, 1)
+        response = future.result(timeout=12)
+        assert 9 <= time.monotonic() - start < 11.5
+        assert response.status_code == 503
+        assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+    assert counts(database) == (0, 0)
+
+
+def test_commit_deadline_keeps_unknown_outcome_safe_for_same_key_replay(
+    database, booking_client
+):
+    import time
+
+    import psycopg
+
+    client, _ = booking_client
+    with psycopg.connect(database) as connection:
+        connection.execute(
+            "CREATE FUNCTION slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(4); RETURN NEW; END $$"
+        )
+        connection.execute(
+            "CREATE TRIGGER slow_insert BEFORE INSERT ON bookings FOR EACH ROW EXECUTE FUNCTION slow_commit()"
+        )
+        connection.execute(
+            "CREATE CONSTRAINT TRIGGER slow_commit AFTER INSERT ON booking_keys DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION slow_commit()"
+        )
+        connection.execute(
+            "CREATE CONSTRAINT TRIGGER slow_commit2 AFTER INSERT ON booking_keys DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION slow_commit()"
+        )
+    key = str(uuid4())
+    start = time.monotonic()
+    response = post(client, key=key)
+    assert response.status_code == 503
+    assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+    assert 9 <= time.monotonic() - start < 11.5
+    with psycopg.connect(database) as connection:
+        connection.execute("DROP TRIGGER slow_insert ON bookings")
+        connection.execute("DROP TRIGGER slow_commit ON booking_keys")
+        connection.execute("DROP TRIGGER slow_commit2 ON booking_keys")
+    result = post(client, key=key)
+    # Закрытие сокета при ожидании COMMIT не доказывает rollback.
+    assert result.status_code in (200, 201)
+    assert post(client, key=key).json() == result.json()
+    assert counts(database) == (1, 1)
+
+
+def test_lost_http_response_after_commit_can_be_replayed_after_restart_and_window_shift(
+    database, booking_client
+):
+    import psycopg
+
+    from app.prepare import prepare_database
+
+    client, now = booking_client
+    key = str(uuid4())
+
+    async def lose_response(scope, receive, send):
+        async def disconnected(message):
+            if message["type"] == "http.response.start":
+                raise OSError("transport lost response after commit")
+            await send(message)
+
+        await app(scope, receive, disconnected)
+
+    with TestClient(lose_response) as disconnected_client:
+        with pytest.raises(OSError):
+            post(disconnected_client, key=key)
+    assert counts(database) == (1, 1)
+    prepare_database()
+    now[0] = datetime.fromisoformat("2027-01-01T12:00:00+00:00")
+    with TestClient(app) as restarted:
+        replay = post(restarted, key=key)
+        assert replay.status_code == 200
+        assert replay.json()["startsAt"] == REQUEST["startsAt"]
+        assert post(restarted, key=key).json() == replay.json()
+    assert counts(database) == (1, 1)
+    with psycopg.connect(database) as connection:
+        assert connection.execute("SELECT count(*) FROM bookings").fetchone()[0] == 1
+
+
+def test_rollback_retry_rechecks_current_window_with_same_key(database, booking_client):
+    import psycopg
+
+    client, now = booking_client
+    with psycopg.connect(database) as connection:
+        connection.execute("CREATE SEQUENCE midnight_retry")
+        connection.execute(
+            "CREATE FUNCTION fail_once() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF nextval('midnight_retry') = 1 THEN RAISE EXCEPTION 'rollback' USING ERRCODE = '40001'; END IF; RETURN NEW; END $$"
+        )
+        connection.execute(
+            "CREATE TRIGGER fail_once BEFORE INSERT ON booking_keys FOR EACH ROW EXECUTE FUNCTION fail_once()"
+        )
+    times = iter([now[0], datetime.fromisoformat("2026-11-14T12:00:00+00:00")])
+    app.dependency_overrides[calendar_clock] = lambda: lambda connection: next(times)
+    key = str(uuid4())
+    response = post(client, key=key)
+    assert response.status_code == 422
+    assert response.json()["code"] == "OUTSIDE_BOOKING_WINDOW"
+    assert counts(database) == (0, 0)
+    app.dependency_overrides[calendar_clock] = lambda: lambda connection: now[0]
+    assert post(client, key=key).status_code == 201
+    assert counts(database) == (1, 1)
+
+
+def test_connection_establishment_and_owner_lock_share_same_deadline(
+    database, booking_client, monkeypatch
+):
+    import select
+    import socket
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    import psycopg
+    from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+    client, _ = booking_client
+    settings = conninfo_to_dict(database)
+    accepted = Event()
+    with socket.create_server(("127.0.0.1", 0)) as listener:
+        port = listener.getsockname()[1]
+
+        def delayed_connection():
+            listener.settimeout(12)
+            with listener.accept()[0] as browser:
+                accepted.set()
+                # Контролируемая задержка именно handshake, затем настоящий PG.
+                Event().wait(2)
+                with socket.create_connection(
+                    (
+                        settings.get("host", "127.0.0.1"),
+                        int(settings.get("port", 5432)),
+                    ),
+                    timeout=12,
+                ) as postgres:
+                    while True:
+                        readable, _, _ = select.select([browser, postgres], [], [], 12)
+                        if not readable:
+                            return
+                        for source in readable:
+                            data = source.recv(65536)
+                            if not data:
+                                return
+                            (postgres if source is browser else browser).sendall(data)
+
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            make_conninfo(database, host="127.0.0.1", port=port, sslmode="disable"),
+        )
+        with (
+            psycopg.connect(database) as holder,
+            ThreadPoolExecutor(max_workers=2) as executor,
+        ):
+            holder.execute("SELECT id FROM owners WHERE id = 1 FOR UPDATE")
+            forwarding = executor.submit(delayed_connection)
+            started = time.monotonic()
+            future = executor.submit(post, client)
+            assert accepted.wait(3)
+            wait_blocked(database, holder, 1)
+            response = future.result(timeout=12)
+            elapsed = time.monotonic() - started
+            assert 9 <= elapsed < 11.5
+            assert response.status_code == 503
+            assert response.json()["code"] == "SERVICE_UNAVAILABLE"
+            forwarding.result(timeout=3)
+    assert counts(database) == (0, 0)

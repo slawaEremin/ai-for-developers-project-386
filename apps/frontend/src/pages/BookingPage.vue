@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AvailabilityCalendar from '../components/AvailabilityCalendar.vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { getMeetingType, listMeetingTypes } from '../api/generated/sdk.gen';
 import type { MeetingType } from '../api/generated/types.gen';
@@ -66,7 +67,7 @@ onBeforeUnmount(() => {
     <h1 tabindex="-1">
       Запись на звонок
     </h1>
-    <p>Выберите тип встречи. Календарь и онлайн-запись скоро появятся.</p>
+    <p>Выберите тип встречи и свободное время для звонка.</p>
     <section aria-label="Типы встреч">
       <h2>Типы встреч</h2>
       <p
@@ -140,8 +141,10 @@ onBeforeUnmount(() => {
         {{ selected.description }}
       </p>
       <p>{{ selected.durationMinutes }} минут</p>
-      <h3>Календарь</h3>
-      <p>Выбор времени скоро появится. Онлайн-запись пока недоступна.</p>
+      <AvailabilityCalendar
+        :key="selected.id"
+        :meeting-type-id="selected.id"
+      />
     </section>
     <a href="#/">Вернуться на главную</a>
   </section>

@@ -6,6 +6,11 @@ const meeting = { id: 'consultation', name: 'Консультация', descript
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
+function stubFetch(transport: (request: Request) => unknown) {
+  vi.stubGlobal('fetch', (request: Request) => request.url.endsWith('/availability')
+    ? Promise.resolve(json({ serverTime: '2026-11-12T12:00:00Z', timeZone: 'Europe/Moscow', windowStartDate: '2026-11-13', windowEndDate: '2026-11-26', days: Array.from({ length: 14 }, (_, index) => ({ date: `2026-11-${13 + index}`, slots: [] })) }))
+    : transport(request));
+}
 afterEach(() => {
   window.history.replaceState(null, '', '/');
   vi.unstubAllGlobals();
@@ -13,7 +18,7 @@ afterEach(() => {
 
 test('гость видит каталог и выбирает тип на той же странице с адресом только типа', async () => {
   window.history.replaceState(null, '', '/#/booking');
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json(meeting)));
+  stubFetch(vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json(meeting)));
   const wrapper = mount(App);
   try {
     expect(wrapper.text()).toContain('Загрузка каталога');
@@ -33,7 +38,7 @@ test('гость видит каталог и выбирает тип на то�
 
 test('ошибка каталога отличается от пустого результата и позволяет явный повтор', async () => {
   window.history.replaceState(null, '', '/#/booking');
-  vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [] })));
+  stubFetch(vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [] })));
   const wrapper = mount(App);
   try {
     await flushPromises();
@@ -48,7 +53,7 @@ test('ошибка каталога отличается от пустого р�
 
 test('неизвестный тип по прямой ссылке оставляет каталог доступным', async () => {
   window.history.replaceState(null, '', '/#/booking?type=missing');
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json({ code: 'MEETING_TYPE_NOT_FOUND', message: 'Тип встречи не найден' }, 404)));
+  stubFetch(vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json({ code: 'MEETING_TYPE_NOT_FOUND', message: 'Тип встречи не найден' }, 404)));
   const wrapper = mount(App);
   try {
     await flushPromises();
@@ -64,7 +69,7 @@ test('прямая ссылка и повторное открытие стра�
   for (const name of ['Консультация', 'Актуальное название']) {
     fetch.mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json({ ...meeting, name }));
   }
-  vi.stubGlobal('fetch', fetch);
+  stubFetch(fetch);
   const first = mount(App);
   await flushPromises();
   expect(first.get('[aria-label="Выбранный тип встречи"]').text()).toContain('Консультация');
@@ -80,7 +85,7 @@ test('прямая ссылка и повторное открытие стра�
 
 test('ошибка получения выбранного типа позволяет повторить загрузку без потери каталога', async () => {
   window.history.replaceState(null, '', '/#/booking?type=consultation');
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json({ code: 'SERVICE_UNAVAILABLE', message: 'Недоступно' }, 503)).mockResolvedValueOnce(json(meeting)));
+  stubFetch(vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json({ code: 'SERVICE_UNAVAILABLE', message: 'Недоступно' }, 503)).mockResolvedValueOnce(json(meeting)));
   const wrapper = mount(App);
   try {
     await flushPromises();
@@ -96,7 +101,7 @@ test('ошибка получения выбранного типа позвол
 test('поздний ответ предыдущего выбора не заменяет новый тип', async () => {
   window.history.replaceState(null, '', '/#/booking?type=slow');
   let resolve: (response: Response) => void = () => {};
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; })).mockResolvedValueOnce(json(meeting)));
+  stubFetch(vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; })).mockResolvedValueOnce(json(meeting)));
   const wrapper = mount(App);
   try {
     await flushPromises();

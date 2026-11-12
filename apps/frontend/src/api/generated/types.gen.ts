@@ -12,6 +12,39 @@ export type ApiError = {
     };
 };
 
+export type Availability = {
+    serverTime: string;
+    timeZone: 'Europe/Moscow';
+    windowStartDate: string;
+    windowEndDate: string;
+    days: [
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay
+    ];
+};
+
+export type AvailabilityDay = {
+    date: string;
+    slots: Array<AvailableSlot>;
+};
+
+export type AvailableSlot = {
+    startsAt: string;
+    endsAt: string;
+};
+
 export type DurationMinutes = number;
 
 export type HealthResponse = {
@@ -154,6 +187,45 @@ export type GetMeetingTypeResponses = {
 };
 
 export type GetMeetingTypeResponse = GetMeetingTypeResponses[keyof GetMeetingTypeResponses];
+
+export type GetAvailabilityData = {
+    body?: never;
+    path: {
+        id: MeetingTypeId;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}/availability';
+};
+
+export type GetAvailabilityErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
+
+export type GetAvailabilityResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Availability;
+};
+
+export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
 
 export type GetHealthData = {
     body?: never;

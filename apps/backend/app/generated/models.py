@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date as date_aliased
 from enum import StrEnum
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, conint, constr
@@ -16,6 +17,18 @@ class ApiError(BaseModel):
     fieldErrors: dict[str, str] | None = None
 
 
+class TimeZone(StrEnum):
+    Europe_Moscow = "Europe/Moscow"
+
+
+class AvailableSlot(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    startsAt: AwareDatetime
+    endsAt: AwareDatetime
+
+
 class Status(StrEnum):
     ok = "ok"
 
@@ -25,6 +38,14 @@ class HealthResponse(BaseModel):
         extra="forbid",
     )
     status: Status
+
+
+class AvailabilityDay(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    date: date_aliased
+    slots: list[AvailableSlot]
 
 
 class MeetingType(BaseModel):
@@ -51,3 +72,14 @@ class MeetingTypeList(BaseModel):
     )
     serverTime: AwareDatetime
     items: list[MeetingType]
+
+
+class Availability(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    serverTime: AwareDatetime
+    timeZone: TimeZone
+    windowStartDate: date_aliased
+    windowEndDate: date_aliased
+    days: list[AvailabilityDay] = Field(..., max_length=14, min_length=14)

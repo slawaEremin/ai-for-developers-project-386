@@ -1,12 +1,8 @@
 """Публичный HTTP-сценарий с настоящим PostgreSQL (TEST_DATABASE_URL)."""
 
-import os
-from uuid import uuid4
-
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
-from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 from app.main import app
@@ -20,25 +16,7 @@ PAYLOAD = {
 }
 
 
-@pytest.fixture(autouse=True)
-def database(monkeypatch):
-    url = os.environ.get(
-        "TEST_DATABASE_URL", "postgresql://calendar:calendar@127.0.0.1:55431/calendar"
-    )
-    schema = "calendar_test_" + uuid4().hex
-    with psycopg.connect(url) as connection:
-        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-    isolated_url = make_conninfo(url, options=f"-c search_path={schema}")
-    monkeypatch.setenv("DATABASE_URL", isolated_url)
-    monkeypatch.setenv("OWNER_NAME", "Владелец календаря")
-    try:
-        prepare_database()
-        yield isolated_url
-    finally:
-        with psycopg.connect(url) as connection:
-            connection.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
-            )
+pytestmark = pytest.mark.usefixtures("database")
 
 
 def test_owner_creates_type_and_it_survives_preparation_and_application_restart():
@@ -193,8 +171,8 @@ def test_initial_preparation_is_empty_and_repeated_preparation_preserves_owner(
             (1, "Владелец календаря")
         ]
         assert connection.execute(
-            "SELECT version FROM schema_migrations"
-        ).fetchall() == [("001_owner_and_meeting_types.sql",)]
+            "SELECT version FROM schema_migrations ORDER BY version"
+        ).fetchall() == [("001_owner_and_meeting_types.sql",), ("002_bookings.sql",)]
 
 
 def test_duplicate_never_changes_stored_type(database):

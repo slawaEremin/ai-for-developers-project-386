@@ -98,3 +98,37 @@ op getMeetingType(@path id: MeetingTypeId):
   | ErrorResponse<422>
   | ErrorResponse<503>
   | ErrorResponse<500>;
+
+model AvailableSlot {
+  startsAt: utcDateTime;
+  endsAt: utcDateTime;
+}
+
+model AvailabilityDay {
+  date: plainDate;
+  slots: AvailableSlot[];
+}
+
+model Availability {
+  serverTime: utcDateTime;
+  timeZone: "Europe/Moscow";
+  windowStartDate: plainDate;
+  windowEndDate: plainDate;
+
+  @minItems(14)
+  @maxItems(14)
+  days: AvailabilityDay[];
+}
+
+@route("/api/meeting-types/{id}/availability")
+@get
+op getAvailability(@path id: MeetingTypeId):
+  | {
+      @statusCode statusCode: 200;
+      @header cacheControl: "no-store";
+      @body body: Availability;
+    }
+  | ErrorResponse<404>
+  | ErrorResponse<422>
+  | ErrorResponse<503>
+  | ErrorResponse<500>;

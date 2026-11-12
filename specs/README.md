@@ -29,3 +29,12 @@ TypeSpec компилируется в OpenAPI 3.1 с закрытыми объ�
 Генераторы устанавливаются корневым npm workspace и uv-окружением бэкенда.
 Результаты хранятся в Git и вручную не редактируются. `make lint` повторяет
 генерацию во временном каталоге и проверяет соответствие файлов.
+
+## Доступность
+
+`GET /api/meeting-types/{id}/availability` возвращает `Availability`:
+`serverTime`, `timeZone` (`Europe/Moscow`), включительные `windowStartDate`
+и `windowEndDate`, а также ровно 14 элементов `days`. Каждый день содержит
+`date` (YYYY-MM-DD) и `slots` с `startsAt`/`endsAt` в UTC с Z; пустые дни
+имеют пустой массив. Ошибки 404/422/503/500 и `Cache-Control: no-store`
+следуют общему формату. Слоты учитывают общую занятость всех типов.

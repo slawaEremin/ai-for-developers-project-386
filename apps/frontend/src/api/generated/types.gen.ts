@@ -4,9 +4,336 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type ApiError = {
+    code: string;
+    message: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type Availability = {
+    serverTime: string;
+    timeZone: 'Europe/Moscow';
+    windowStartDate: string;
+    windowEndDate: string;
+    days: [
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay,
+        AvailabilityDay
+    ];
+};
+
+export type AvailabilityDay = {
+    date: string;
+    slots: Array<AvailableSlot>;
+};
+
+export type AvailableSlot = {
+    startsAt: string;
+    endsAt: string;
+};
+
+export type Booking = {
+    id: string;
+    meetingTypeId: MeetingTypeId;
+    meetingTypeName: MeetingTypeName;
+    startsAt: string;
+    endsAt: string;
+    durationMinutes: DurationMinutes;
+    timeZone: 'Europe/Moscow';
+};
+
+export type BookingRequest = {
+    meetingTypeId: MeetingTypeId;
+    /**
+     * RFC 3339 со смещением или Z; эквивалентные моменты равнозначны.
+     */
+    startsAt: string;
+};
+
+export type DurationMinutes = number;
+
 export type HealthResponse = {
     status: 'ok';
 };
+
+export type MeetingType = {
+    id: MeetingTypeId;
+    name: MeetingTypeName;
+    description: MeetingTypeDescription;
+    durationMinutes: DurationMinutes;
+};
+
+/**
+ * Обычный текст с внутренними переносами; края очищаются от пробелов.
+ */
+export type MeetingTypeDescription = string;
+
+export type MeetingTypeId = string;
+
+export type MeetingTypeList = {
+    serverTime: string;
+    items: Array<MeetingType>;
+};
+
+/**
+ * Однострочный обычный текст; края очищаются от пробелов, длина в Unicode.
+ */
+export type MeetingTypeName = string;
+
+export type UpcomingBookings = {
+    serverTime: string;
+    items: Array<Booking>;
+};
+
+export type CreateBookingData = {
+    body: BookingRequest;
+    headers: {
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/bookings';
+};
+
+export type CreateBookingErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: ApiError;
+    /**
+     * Client error
+     */
+    415: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type CreateBookingError = CreateBookingErrors[keyof CreateBookingErrors];
+
+export type CreateBookingResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Booking;
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: Booking;
+};
+
+export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
+
+export type ListUpcomingBookingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/bookings/upcoming';
+};
+
+export type ListUpcomingBookingsErrors = {
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type ListUpcomingBookingsError = ListUpcomingBookingsErrors[keyof ListUpcomingBookingsErrors];
+
+export type ListUpcomingBookingsResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: UpcomingBookings;
+};
+
+export type ListUpcomingBookingsResponse = ListUpcomingBookingsResponses[keyof ListUpcomingBookingsResponses];
+
+export type ListMeetingTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type ListMeetingTypesErrors = {
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type ListMeetingTypesError = ListMeetingTypesErrors[keyof ListMeetingTypesErrors];
+
+export type ListMeetingTypesResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingTypeList;
+};
+
+export type ListMeetingTypesResponse = ListMeetingTypesResponses[keyof ListMeetingTypesResponses];
+
+export type CreateMeetingTypeData = {
+    body: MeetingType;
+    path?: never;
+    query?: never;
+    url: '/api/meeting-types';
+};
+
+export type CreateMeetingTypeErrors = {
+    /**
+     * The server could not understand the request due to invalid syntax.
+     */
+    400: ApiError;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: ApiError;
+    /**
+     * Client error
+     */
+    415: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];
+
+export type CreateMeetingTypeResponses = {
+    /**
+     * The request has succeeded and a new resource has been created as a result.
+     */
+    201: MeetingType;
+};
+
+export type CreateMeetingTypeResponse = CreateMeetingTypeResponses[keyof CreateMeetingTypeResponses];
+
+export type GetMeetingTypeData = {
+    body?: never;
+    path: {
+        id: MeetingTypeId;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}';
+};
+
+export type GetMeetingTypeErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type GetMeetingTypeError = GetMeetingTypeErrors[keyof GetMeetingTypeErrors];
+
+export type GetMeetingTypeResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: MeetingType;
+};
+
+export type GetMeetingTypeResponse = GetMeetingTypeResponses[keyof GetMeetingTypeResponses];
+
+export type GetAvailabilityData = {
+    body?: never;
+    path: {
+        id: MeetingTypeId;
+    };
+    query?: never;
+    url: '/api/meeting-types/{id}/availability';
+};
+
+export type GetAvailabilityErrors = {
+    /**
+     * The server cannot find the requested resource.
+     */
+    404: ApiError;
+    /**
+     * Client error
+     */
+    422: ApiError;
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type GetAvailabilityError = GetAvailabilityErrors[keyof GetAvailabilityErrors];
+
+export type GetAvailabilityResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: Availability;
+};
+
+export type GetAvailabilityResponse = GetAvailabilityResponses[keyof GetAvailabilityResponses];
 
 export type GetHealthData = {
     body?: never;

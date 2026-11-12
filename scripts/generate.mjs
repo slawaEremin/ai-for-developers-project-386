@@ -51,6 +51,8 @@ try {
     '--target-python-version', '3.13',
     '--formatters', 'builtin',
     '--disable-timestamp',
+    '--extra-fields', 'forbid',
+    '--collapse-root-models',
     '--custom-file-header', '# Generated from specs/main.tsp. Do not edit.',
   ], path.join(root, 'apps/backend'));
   run('uv', ['run', '--locked', 'ruff', 'check', '--select', 'I', '--fix', models], path.join(root, 'apps/backend'));

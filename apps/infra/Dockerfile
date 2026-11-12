@@ -28,4 +28,4 @@ COPY --from=build /build/apps/frontend/dist /app/dist
 ENV PATH="/app/.venv/bin:$PATH" STATIC_DIR=/app/dist
 USER app
 EXPOSE 8000
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "app.start"]

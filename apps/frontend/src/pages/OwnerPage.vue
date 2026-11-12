@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
+import UpcomingBookings from '../components/UpcomingBookings.vue';
 import { createMeetingType } from '../api/generated/sdk.gen';
 import type { MeetingType } from '../api/generated/types.gen';
 
@@ -182,6 +183,7 @@ async function submit() {
     >
       Тип встречи «{{ created.name }}» создан. <a :href="`#/booking?type=${encodeURIComponent(created.id)}`">Открыть гостевую страницу</a>
     </p>
+    <UpcomingBookings />
   </section>
 </template>
 

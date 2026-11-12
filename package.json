@@ -14,7 +14,8 @@
     "generate": "node scripts/generate.mjs",
     "generate:check": "node scripts/generate.mjs --check",
     "lint": "tsp format --check specs/main.tsp && npm run lint --workspace apps/frontend && npm run generate:check",
-    "build": "npm run build --workspace apps/frontend"
+    "build": "npm run build --workspace apps/frontend",
+    "test:e2e": "npm run build && uv run --project apps/backend --locked python scripts/e2e.py"
   },
   "overrides": {
     "js-yaml": "4.3.2",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
+    "@playwright/test": "1.65.0",
     "@typespec/compiler": "1.17.0",
     "@typespec/http": "1.17.0",
     "@typespec/openapi3": "1.17.0",

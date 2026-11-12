@@ -106,6 +106,14 @@ class MeetingTypeList(BaseModel):
     items: list[MeetingType]
 
 
+class UpcomingBookings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    serverTime: AwareDatetime
+    items: list[Booking]
+
+
 class Availability(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

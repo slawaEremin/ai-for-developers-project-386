@@ -174,3 +174,19 @@ op createBooking(
   | ErrorResponse<422>
   | ErrorResponse<503>
   | ErrorResponse<500>;
+
+model UpcomingBookings {
+  serverTime: utcDateTime;
+  items: Booking[];
+}
+
+@route("/api/bookings/upcoming")
+@get
+op listUpcomingBookings():
+  | {
+      @statusCode statusCode: 200;
+      @header cacheControl: "no-store";
+      @body body: UpcomingBookings;
+    }
+  | ErrorResponse<503>
+  | ErrorResponse<500>;

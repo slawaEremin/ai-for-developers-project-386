@@ -2,6 +2,13 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, expect, test, vi } from 'vitest';
 import App from '../src/App.vue';
 
+// Форма и список обращаются к разным публичным HTTP-операциям.
+function installFormFetch(formFetch: (request: Request) => Promise<Response>) {
+  vi.stubGlobal('fetch', (request: Request) => new URL(request.url).pathname === '/api/bookings/upcoming'
+    ? Promise.resolve(new Response(JSON.stringify({ serverTime: '2026-11-12T12:00:00Z', items: [] }), { headers: { 'Content-Type': 'application/json' } }))
+    : formFetch(request));
+}
+
 afterEach(() => {
   window.history.replaceState(null, '', '/');
   vi.unstubAllGlobals();
@@ -12,7 +19,7 @@ test('владелец отправляет форму через API, види�
   const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
     id: 'consultation', name: 'Консультация', description: 'Вопросы', durationMinutes: 45,
   }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
-  vi.stubGlobal('fetch', fetch);
+  installFormFetch(fetch);
   const wrapper = mount(App);
   try {
     expect(wrapper.get('h1').text()).toBe('Страница владельца');
@@ -44,7 +51,7 @@ async function completeForm(wrapper: ReturnType<typeof mount>) {
 test('поля проверяются при отправке и ошибки обновляются после исправления без запроса', async () => {
   window.history.replaceState(null, '', '/#/owner');
   const fetch = vi.fn();
-  vi.stubGlobal('fetch', fetch);
+  installFormFetch(fetch);
   const wrapper = mount(App);
   try {
     expect(wrapper.find('.field-error').exists()).toBe(false);
@@ -64,7 +71,7 @@ test('во время запроса форма заблокирована, ко
   window.history.replaceState(null, '', '/#/owner');
   let resolve: (response: Response) => void = () => {};
   const fetch = vi.fn().mockReturnValue(new Promise<Response>((done) => { resolve = done; }));
-  vi.stubGlobal('fetch', fetch);
+  installFormFetch(fetch);
   const wrapper = mount(App);
   try {
     await completeForm(wrapper);
@@ -86,7 +93,7 @@ test('во время запроса форма заблокирована, ко
 test('при потере ответа владелец сохраняет ввод и проверяет каталог без автоматического повтора', async () => {
   window.history.replaceState(null, '', '/#/owner');
   const fetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
-  vi.stubGlobal('fetch', fetch);
+  installFormFetch(fetch);
   const wrapper = mount(App);
   try {
     await completeForm(wrapper);

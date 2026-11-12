@@ -38,3 +38,13 @@ TypeSpec компилируется в OpenAPI 3.1 с закрытыми объ�
 `date` (YYYY-MM-DD) и `slots` с `startsAt`/`endsAt` в UTC с Z; пустые дни
 имеют пустой массив. Ошибки 404/422/503/500 и `Cache-Control: no-store`
 следуют общему формату. Слоты учитывают общую занятость всех типов.
+
+
+## Предстоящие встречи владельца
+
+`GET /api/bookings/upcoming` возвращает `UpcomingBookings`: `serverTime` (UTC Z)
+и `items` полных объектов `Booking` (`id`, `meetingTypeId`, `meetingTypeName`,
+`startsAt`, `endsAt`, `durationMinutes`, `timeZone`). Включаются записи
+с `startsAt >= serverTime`, сортировка по началу и UUID, без фильтров,
+пагинации и ограничения окном гостя. Пустой результат — 200 и пустой массив.
+Ошибки 503/500 и `Cache-Control: no-store` соответствуют общему контракту.

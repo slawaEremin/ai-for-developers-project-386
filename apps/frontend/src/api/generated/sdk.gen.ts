@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetHealthData, GetHealthResponses, GetMeetingTypeData, GetMeetingTypeErrors, GetMeetingTypeResponses, ListMeetingTypesData, ListMeetingTypesErrors, ListMeetingTypesResponses } from './types.gen';
+import type { CreateBookingData, CreateBookingErrors, CreateBookingResponses, CreateMeetingTypeData, CreateMeetingTypeErrors, CreateMeetingTypeResponses, GetAvailabilityData, GetAvailabilityErrors, GetAvailabilityResponses, GetHealthData, GetHealthResponses, GetMeetingTypeData, GetMeetingTypeErrors, GetMeetingTypeResponses, ListMeetingTypesData, ListMeetingTypesErrors, ListMeetingTypesResponses, ListUpcomingBookingsData, ListUpcomingBookingsErrors, ListUpcomingBookingsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -26,6 +26,8 @@ export const createBooking = <ThrowOnError extends boolean = false>(options: Opt
         ...options.headers
     }
 });
+
+export const listUpcomingBookings = <ThrowOnError extends boolean = false>(options?: Options<ListUpcomingBookingsData, ThrowOnError>): RequestResult<ListUpcomingBookingsResponses, ListUpcomingBookingsErrors, ThrowOnError> => (options?.client ?? client).get<ListUpcomingBookingsResponses, ListUpcomingBookingsErrors, ThrowOnError>({ url: '/api/bookings/upcoming', ...options });
 
 export const listMeetingTypes = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingTypesData, ThrowOnError>): RequestResult<ListMeetingTypesResponses, ListMeetingTypesErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingTypesResponses, ListMeetingTypesErrors, ThrowOnError>({ url: '/api/meeting-types', ...options });
 

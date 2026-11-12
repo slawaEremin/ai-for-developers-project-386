@@ -93,6 +93,11 @@ export type MeetingTypeList = {
  */
 export type MeetingTypeName = string;
 
+export type UpcomingBookings = {
+    serverTime: string;
+    items: Array<Booking>;
+};
+
 export type CreateBookingData = {
     body: BookingRequest;
     headers: {
@@ -148,6 +153,35 @@ export type CreateBookingResponses = {
 };
 
 export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
+
+export type ListUpcomingBookingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/bookings/upcoming';
+};
+
+export type ListUpcomingBookingsErrors = {
+    /**
+     * Server error
+     */
+    500: ApiError;
+    /**
+     * Service unavailable.
+     */
+    503: ApiError;
+};
+
+export type ListUpcomingBookingsError = ListUpcomingBookingsErrors[keyof ListUpcomingBookingsErrors];
+
+export type ListUpcomingBookingsResponses = {
+    /**
+     * The request has succeeded.
+     */
+    200: UpcomingBookings;
+};
+
+export type ListUpcomingBookingsResponse = ListUpcomingBookingsResponses[keyof ListUpcomingBookingsResponses];
 
 export type ListMeetingTypesData = {
     body?: never;

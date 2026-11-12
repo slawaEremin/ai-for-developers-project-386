@@ -49,3 +49,9 @@ jobs:
 
       - name: Выполнить все проверки
         run: make check
+
+      - name: Установить Chromium для сквозного сценария
+        run: npx playwright install --with-deps chromium
+
+      - name: Проверить сквозную запись в настоящем браузере
+        run: npm run test:e2e

@@ -223,6 +223,77 @@
         }
       }
     },
+    "/api/bookings/upcoming": {
+      "get": {
+        "operationId": "listUpcomingBookings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpcomingBookings"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable.",
+            "headers": {
+              "cache-control": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/meeting-types": {
       "post": {
         "operationId": "createMeetingType",
@@ -981,6 +1052,28 @@
         "minLength": 1,
         "maxLength": 120,
         "description": "Однострочный обычный текст; края очищаются от пробелов, длина в Unicode."
+      },
+      "UpcomingBookings": {
+        "type": "object",
+        "required": [
+          "serverTime",
+          "items"
+        ],
+        "properties": {
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Booking"
+            }
+          }
+        },
+        "unevaluatedProperties": {
+          "not": {}
+        }
       }
     }
   }

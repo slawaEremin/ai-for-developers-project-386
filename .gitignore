@@ -12,3 +12,5 @@ coverage/
 !.env.example
 .DS_Store
 .idea
+test-results/
+playwright-report/

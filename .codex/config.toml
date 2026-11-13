@@ -1,0 +1,6 @@
+[mcp_servers.render]
+url = "https://mcp.render.com/mcp"
+
+[mcp_servers.render.oauth]
+client_id = "codex"
+callback_url = "http://127.0.0.1/callback"

@@ -187,6 +187,28 @@ Swagger UI доступен по адресу `http://127.0.0.1:8000/docs`.
 слияние release-PR создаёт тег и GitHub Release. Подробнее —
 [в инструкции релизов](.github/workflows/README.md#релизы-приложения).
 
+### Render MCP без плагина
+
+В [`.codex/config.toml`](.codex/config.toml) настроен официальный
+[MCP-сервер Render](https://render.com/docs/mcp-server). Через него агент может
+запускать деплой, проверять его статус и читать логи сервиса без плагина Render.
+
+Codex читает проектный конфиг только для доверенных проектов
+([документация OpenAI](https://learn.chatgpt.com/docs/config-file/config-advanced)).
+Откройте репозиторий в Codex и подтвердите доверие к нему. Затем из корня
+проекта проверьте настройки и при необходимости войдите в Render через браузер:
+
+```sh
+codex mcp get render
+codex mcp login render
+```
+
+Авторизация использует OAuth; секреты в проектном конфиге не хранятся.
+После входа перезапустите Codex и попросите агента показать доступные рабочие
+пространства Render. Укажите нужное пространство перед работой с сервисами.
+Наличие конфига само по себе не подтверждает доступ к аккаунту: его проверяет
+успешный запрос к MCP-серверу.
+
 [![Проверки проекта](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml/badge.svg)](https://github.com/slawaEremin/ai-for-developers-project-386/actions/workflows/check.yml)
 
 ## Hexlet tests and linter status

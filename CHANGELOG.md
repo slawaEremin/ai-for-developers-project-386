@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/slawaEremin/ai-for-developers-project-386/compare/v0.1.0...v0.2.0) (2026-11-13)
+
+
+### Новые возможности
+
+* обновить дизайн гостевых страниц календаря ([b9a9cc5](https://github.com/slawaEremin/ai-for-developers-project-386/commit/b9a9cc55ecffea3db2504df260be925c2e5c8044))
+
+
+### Исправления
+
+* обеспечить автономный Docker-запуск с поддержкой PORT ([d6d815b](https://github.com/slawaEremin/ai-for-developers-project-386/commit/d6d815b6c47d215cbf75a30fc0f3414787fec0ff))
+
 ## 0.1.0 (2026-11-12)
 
 

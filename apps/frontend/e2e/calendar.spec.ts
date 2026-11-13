@@ -1,5 +1,49 @@
 import { expect, test } from '@playwright/test';
 
+test('три гостевых экрана доступны с клавиатуры и не выходят за ширину экрана', async ({ page }, testInfo) => {
+  for (const durationMinutes of [15, 30]) {
+    const response = await page.request.post('/api/meeting-types', { data: {
+      id: `design-${durationMinutes}`, name: `Встреча ${durationMinutes} минут`,
+      description: durationMinutes === 15 ? 'Короткий тип встречи для быстрого слота.' : 'Базовый тип встречи для бронирования.', durationMinutes,
+    } });
+    expect(response.status()).toBe(201);
+  }
+  for (const width of [1400, 375, 320]) {
+    await test.step(`Ширина ${width} px`, async () => {
+      await page.setViewportSize({ width, height: 1050 });
+      await page.goto('/');
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Calendar');
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: testInfo.outputPath(`home-${width}.png`), fullPage: true });
+      await page.locator('main').getByRole('link', { name: 'Записаться' }).click();
+      const meetingLink = page.getByRole('link', { name: 'Выбрать «Встреча 15 минут»' });
+      await expect(meetingLink).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: testInfo.outputPath(`catalog-${width}.png`), fullPage: true });
+      await meetingLink.focus();
+      await page.keyboard.press('Enter');
+      const title = page.getByRole('heading', { level: 1, name: 'Встреча 15 минут', exact: true });
+      await expect(title).toBeFocused();
+      const slots = page.locator('[data-slot]');
+      await expect(slots.first()).toBeVisible();
+      await expect(page.locator('[data-calendar-date]')).toHaveCount(42);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: testInfo.outputPath(`booking-${width}.png`), fullPage: true });
+      await slots.last().scrollIntoViewIfNeeded();
+      await expect(slots.last()).toBeVisible();
+      await slots.first().click();
+      await page.getByRole('button', { name: 'Продолжить', exact: true }).click();
+      await expect(page.getByRole('status', { name: 'Итог записи' })).toContainText('15 минут');
+      await expect(page.getByRole('button', { name: 'Подтвердить запись', exact: true })).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.getByRole('button', { name: 'Назад', exact: true }).click();
+      await expect(page.locator('[data-slot][aria-pressed="true"]')).toHaveCount(1);
+      await page.getByRole('link', { name: 'Назад', exact: true }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Выберите тип встречи' })).toBeFocused();
+    });
+  }
+});
+
 test('владелец создаёт тип, гость подтверждает слот, запись появляется у владельца', async ({ page, context }) => {
   await page.goto('/#/owner');
   await expect(page.getByText('Предстоящих встреч пока нет.')).toBeVisible();
@@ -16,9 +60,10 @@ test('владелец создаёт тип, гость подтверждае�
   const guest = await context.newPage();
   await guest.goto(`/${guestLink}`);
   const slot = guest.locator('[data-slot]').first();
-  await expect(slot).toHaveText('09:00–09:45');
+  await expect(slot).toHaveAccessibleName('09:00–09:45');
   const startsAt = await slot.getAttribute('data-slot');
   await slot.click();
+  await guest.getByRole('button', { name: 'Продолжить', exact: true }).click();
   await expect(guest.getByRole('status', { name: 'Итог записи' })).toContainText('45 минут');
   const confirmed = guest.waitForResponse((response) => response.url().endsWith('/api/bookings') && response.request().method() === 'POST');
   await guest.getByRole('button', { name: 'Подтвердить запись', exact: true }).click();

@@ -13,9 +13,9 @@ test('главная объясняет сервис гостю и ведёт к
 
   try {
     expect(document.body.contains(wrapper.element)).toBe(true);
-    expect(wrapper.get('h1').text()).toBe('Выберите удобное время для звонка.');
+    expect(wrapper.get('h1').text()).toBe('Calendar');
     expect(wrapper.get('main').text()).toContain('без регистрации');
-    expect(wrapper.get('main').text()).toContain('Выберите свободное время и подтвердите запись онлайн.');
+    expect(wrapper.get('main').text()).toContain('Выбор типа встречи и удобного времени');
     expect(wrapper.get('a[href="#/booking"]').text()).toContain('Записаться');
   } finally {
     wrapper.unmount();
@@ -29,7 +29,7 @@ test('гость переходит с главной к каталогу тип
     wrapper.get<HTMLAnchorElement>('main a[href="#/booking"]').element.click();
 
     await vi.waitFor(() => {
-      expect(wrapper.get('h1').text()).toBe('Запись на звонок');
+      expect(wrapper.get('h1').text()).toBe('Выберите тип встречи');
       expect(document.activeElement).toBe(wrapper.get('h1').element);
     });
     expect(document.title).toBe('Запись на звонок — Календарь звонков');
@@ -37,7 +37,7 @@ test('гость переходит с главной к каталогу тип
     wrapper.get<HTMLAnchorElement>('main a[href="#/"]').element.click();
 
     await vi.waitFor(() => {
-      expect(wrapper.get('h1').text()).toBe('Выберите удобное время для звонка.');
+      expect(wrapper.get('h1').text()).toBe('Calendar');
       expect(document.activeElement).toBe(wrapper.get('h1').element);
     });
     expect(document.title).toBe('Календарь звонков');
@@ -51,14 +51,14 @@ test('каталог открывается по прямой ссылке, а �
   const wrapper = mount(App, { attachTo: document.body });
 
   try {
-    expect(wrapper.get('h1').text()).toBe('Запись на звонок');
+    expect(wrapper.get('h1').text()).toBe('Выберите тип встречи');
     expect(document.title).toBe('Запись на звонок — Календарь звонков');
 
     await wrapper.get<HTMLAnchorElement>('a[href="#main"]').trigger('click');
 
     expect(document.activeElement).toBe(wrapper.get('main').element);
     expect(window.location.hash).toBe('#/booking');
-    expect(wrapper.get('h1').text()).toBe('Запись на звонок');
+    expect(wrapper.get('h1').text()).toBe('Выберите тип встречи');
   } finally {
     wrapper.unmount();
   }

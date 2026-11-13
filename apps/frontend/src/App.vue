@@ -10,18 +10,16 @@ function currentPage() {
 }
 
 const page = ref(currentPage());
-const isBooking = ref(page.value === '#/booking');
 const main = ref<HTMLElement | null>(null);
 
 function updateTitle() {
-  document.title = page.value === '#/owner' ? 'Владелец — Календарь звонков' : isBooking.value ? 'Запись на звонок — Календарь звонков' : 'Календарь звонков';
+  document.title = page.value === '#/owner' ? 'Владелец — Календарь звонков' : page.value === '#/booking' ? 'Запись на звонок — Календарь звонков' : 'Календарь звонков';
 }
 
 async function syncPage() {
   const nextPage = currentPage();
   if (nextPage === page.value) return;
   page.value = nextPage;
-  isBooking.value = nextPage === '#/booking';
   updateTitle();
   await nextTick();
   main.value?.querySelector('h1')?.focus();
@@ -40,79 +38,55 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncPage));
     href="#main"
     @click.prevent="main?.focus()"
   >К содержимому</a>
-  <div class="app-shell">
-    <header class="site-header container">
-      <a
-        class="brand"
-        href="#/"
-        aria-label="Календарь звонков — главная"
-      >
-        <svg
-          class="brand-mark"
-          viewBox="0 0 32 32"
-          fill="none"
-          aria-hidden="true"
-        >
-          <rect
-            width="32"
-            height="32"
-            rx="10"
-            fill="currentColor"
-          />
-          <path
-            d="M10 8v4m12-4v4M8 15h16M10 10h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V12a2 2 0 0 1 2-2Z"
-            stroke="white"
-            stroke-width="1.7"
-            stroke-linecap="round"
-          />
-          <path
-            d="m12 20 3 3 5-5"
-            stroke="white"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-        <span>Календарь звонков</span>
-      </a>
-      <nav aria-label="Основная навигация">
+  <div
+    class="app-shell"
+    :class="{ 'app-home': page === '#/' }"
+  >
+    <header class="site-header">
+      <div class="container header-content">
         <a
-          class="nav-link"
-          href="#/owner"
-        >Владельцу</a>
-        <a
-          v-if="!isBooking"
-          class="nav-link"
-          href="#how-it-works"
-        >Как это работает</a>
-        <a
-          v-else
-          class="nav-link"
+          class="brand"
           href="#/"
-        >На главную</a>
-        <a
-          v-if="!isBooking"
-          class="button button-small button-secondary"
-          href="#/booking"
+          aria-label="Calendar — главная"
         >
-          Записаться <span aria-hidden="true">→</span>
+          <svg
+            class="brand-mark"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M8 2v4m8-4v4M3 10h9M9 21H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4" />
+            <circle
+              cx="16"
+              cy="16"
+              r="6"
+            />
+            <path d="M16 13v3l2 1" />
+          </svg>
+          <span>Calendar</span>
         </a>
-      </nav>
+        <nav aria-label="Основная навигация">
+          <a
+            class="nav-link"
+            href="#/booking"
+            :aria-current="page === '#/booking' ? 'page' : undefined"
+          >Записаться</a>
+          <a
+            class="nav-link"
+            href="#/owner"
+            :aria-current="page === '#/owner' ? 'page' : undefined"
+          >Админка</a>
+        </nav>
+      </div>
     </header>
-
     <main
       id="main"
       ref="main"
       tabindex="-1"
     >
-      <BookingPage v-if="isBooking" />
+      <BookingPage v-if="page === '#/booking'" />
       <OwnerPage v-else-if="page === '#/owner'" />
       <HomePage v-else />
     </main>
-
-    <footer class="site-footer container">
-      <span class="footer-brand">Календарь звонков</span>
-      <span>Удобное время. Хороший разговор.</span>
-    </footer>
   </div>
 </template>

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { restoreAttempt } from '../bookingAttempt';
 import AvailabilityCalendar from '../components/AvailabilityCalendar.vue';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import HostProfile from '../components/HostProfile.vue';
 import { getMeetingType, listMeetingTypes } from '../api/generated/sdk.gen';
 import type { MeetingType } from '../api/generated/types.gen';
 
+const heading = ref<HTMLElement | null>(null);
 const bookingLocked = ref(false);
 const items = ref<MeetingType[]>([]);
 const loading = ref(true);
@@ -61,6 +63,10 @@ async function selectFromAddress() {
     if (request === selectionRequest) selectionLoading.value = false;
   }
 }
+watch(() => selected.value?.id, async () => {
+  await nextTick();
+  heading.value?.focus();
+});
 
 onMounted(() => {
   void loadCatalog();
@@ -74,104 +80,111 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="container booking-page">
-    <p class="eyebrow">
-      Выберите формат разговора
-    </p>
-    <h1 tabindex="-1">
-      Запись на звонок
-    </h1>
-    <p>Выберите тип встречи и свободное время для звонка.</p>
-    <section aria-label="Типы встреч">
-      <h2>Типы встреч</h2>
+  <section
+    class="container booking-page"
+    :class="{ 'catalog-page': !selected }"
+  >
+    <template v-if="!selected">
+      <div class="panel catalog-intro">
+        <HostProfile />
+        <h1
+          ref="heading"
+          tabindex="-1"
+        >
+          Выберите тип встречи
+        </h1>
+        <p>Нажмите на карточку, чтобы открыть календарь и выбрать удобный слот.</p>
+      </div>
+      <section
+        class="catalog"
+        aria-label="Типы встреч"
+      >
+        <p
+          v-if="loading"
+          role="status"
+        >
+          Загрузка каталога…
+        </p>
+        <div
+          v-else-if="catalogError"
+          class="panel feedback"
+          role="alert"
+        >
+          <p>Не удалось загрузить каталог.</p>
+          <button
+            class="button button-secondary"
+            @click="loadCatalog"
+          >
+            Повторить загрузку каталога
+          </button>
+        </div>
+        <p v-else-if="items.length === 0">
+          Владелец пока не создал типы встреч.
+        </p>
+        <ul
+          v-else
+          class="meeting-types"
+        >
+          <li
+            v-for="item in items"
+            :key="item.id"
+          >
+            <a
+              class="panel meeting-type"
+              :href="`#/booking?type=${encodeURIComponent(item.id)}`"
+              :aria-label="`Выбрать «${item.name}»`"
+            >
+              <div class="meeting-title"><h2>{{ item.name }}</h2><span class="duration">{{ item.durationMinutes }} мин</span></div>
+              <p class="meeting-description">{{ item.description }}</p>
+            </a>
+          </li>
+        </ul>
+      </section>
       <p
-        v-if="loading"
+        v-if="selectionLoading"
+        class="selection-feedback"
         role="status"
       >
-        Загрузка каталога…
+        Загрузка выбранного типа…
       </p>
       <div
-        v-else-if="catalogError"
+        v-if="selectionMessage"
+        class="panel feedback selection-feedback"
         role="alert"
       >
-        <p>Не удалось загрузить каталог.</p>
+        <p>{{ selectionMessage }}</p>
         <button
+          v-if="selectionFailed"
           class="button button-secondary"
-          @click="loadCatalog"
+          @click="selectFromAddress"
         >
-          Повторить загрузку каталога
+          Повторить загрузку типа
         </button>
       </div>
-      <p v-else-if="items.length === 0">
-        Владелец пока не создал типы встреч.
-      </p>
-      <ul
-        v-else
-        class="meeting-types"
-      >
-        <li
-          v-for="item in items"
-          :key="item.id"
-          class="meeting-type"
-        >
-          <h3>{{ item.name }}</h3>
-          <p class="meeting-description">
-            {{ item.description }}
-          </p>
-          <p>{{ item.durationMinutes }} минут</p>
-          <a
-            v-if="!bookingLocked"
-            class="button button-secondary"
-            :href="`#/booking?type=${encodeURIComponent(item.id)}`"
-          >Выбрать «{{ item.name }}»</a>
-        </li>
-      </ul>
-    </section>
-    <p
-      v-if="selectionLoading"
-      role="status"
-    >
-      Загрузка выбранного типа…
-    </p>
-    <div
-      v-if="selectionMessage"
-      role="alert"
-    >
-      <p>{{ selectionMessage }}</p>
-      <button
-        v-if="selectionFailed"
-        class="button button-secondary"
-        @click="selectFromAddress"
-      >
-        Повторить загрузку типа
-      </button>
-    </div>
+      <a
+        class="back-home"
+        href="#/"
+      >Вернуться на главную</a>
+    </template>
     <section
-      v-if="selected"
+      v-else
       aria-label="Выбранный тип встречи"
-      class="selected-type"
     >
-      <h2>{{ selected.name }}</h2>
-      <p class="meeting-description">
-        {{ selected.description }}
-      </p>
-      <p>{{ selected.durationMinutes }} минут</p>
+      <h1
+        ref="heading"
+        class="booking-title"
+        tabindex="-1"
+      >
+        {{ selected.name }}
+      </h1>
       <AvailabilityCalendar
         :key="selected.id"
         :meeting-type-id="selected.id"
         :meeting-type-name="selected.name"
+        :meeting-description="selected.description"
         :duration-minutes="selected.durationMinutes"
         @locked="bookingLocked = $event"
       />
     </section>
-    <a href="#/">Вернуться на главную</a>
   </section>
 </template>
-
-<style scoped>
-.booking-page { padding-block: 4rem; }
-.meeting-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1rem; padding: 0; list-style: none; }
-.meeting-type, .selected-type { border: 1px solid #c5cec5; border-radius: 1rem; padding: 1.5rem; }
-.meeting-description { white-space: pre-wrap; overflow-wrap: anywhere; }
-.selected-type { margin-block: 2rem; background: #eef3ed; }
-</style>

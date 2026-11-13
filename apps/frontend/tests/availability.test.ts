@@ -26,14 +26,15 @@ test('календарь показывает все дни, выбирает б
   try {
     await flushPromises();
     const calendar = wrapper.get('[aria-label="Календарь"]');
-    expect(wrapper.get('[aria-label="Типы встреч"]').text()).toContain('Консультация');
+    expect(wrapper.get('[aria-label="Выбранный тип встречи"]').text()).toContain('Консультация');
     expect(calendar.findAll('[data-date]')).toHaveLength(14);
     expect(calendar.get('[data-date="2026-11-14"]').attributes('aria-pressed')).toBe('true');
     expect(calendar.text()).toContain('14 ноября 2026');
     expect(calendar.text()).toContain('09:00–09:45');
     expect(calendar.text()).toContain('Europe/Moscow');
     await calendar.get('[data-slot]').trigger('click');
-    expect(calendar.text()).toContain('Выбрано:');
+    expect(calendar.get('[data-slot]').attributes('aria-pressed')).toBe('true');
+    expect(calendar.get('[aria-label="Сведения о встрече"]').text()).toContain('09:00–09:45');
     expect(window.location.hash).toBe('#/booking?type=consultation');
     await calendar.get('[data-date="2026-11-13"]').trigger('click');
     expect(calendar.text()).toContain('В этот день нет свободного времени');
@@ -57,7 +58,7 @@ test('загрузка, ошибка с повтором и пустое окн�
     expect(wrapper.text()).toContain('Не удалось загрузить доступность');
     expect(wrapper.text()).not.toContain('Во всём окне нет свободного времени');
     pending = new Promise<Response>((done) => { resolve = done; });
-    await wrapper.get('[aria-label="Календарь"] button').trigger('click');
+    await wrapper.findAll('button').find((item) => item.text() === 'Повторить загрузку доступности')!.trigger('click');
     expect(wrapper.text()).toContain('Загрузка доступности');
     resolve(json({ ...availability(), days: availability().days.map((day) => ({ ...day, slots: [] })) }));
     await flushPromises();
@@ -138,7 +139,7 @@ test('смена типа сбрасывает дату и слот, поздн�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
-    expect(wrapper.text()).toContain('Выбрано:');
+    expect(wrapper.get('[data-slot]').attributes('aria-pressed')).toBe('true');
     slow = true;
     window.dispatchEvent(new Event('focus'));
     await flushPromises();
@@ -163,4 +164,51 @@ test('смена типа сбрасывает дату и слот, поздн�
       for (const [request] of fetch.mock.calls) expect(request.method).toBe('GET');
     } finally { reloaded.unmount(); }
   } finally { if (wrapper.exists()) wrapper.unmount(); }
+});
+
+test('месячная сетка начинается с понедельника и ограничивает навигацию окном на границе года', async () => {
+  const days = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 11, 29 + index)).toISOString().slice(0, 10);
+    return { date, slots: date === '2027-01-02' ? [{ startsAt: '2027-01-02T06:00:00Z', endsAt: '2027-01-02T06:45:00Z' }] : [] };
+  });
+  api(async () => json({ ...availability(), serverTime: '2026-12-28T12:00:00Z', windowStartDate: '2026-12-29', windowEndDate: '2027-01-11', days }));
+  const wrapper = mount(App);
+  try {
+    await flushPromises();
+    expect(wrapper.get('.calendar-month').text()).toContain('январь 2027');
+    expect(wrapper.findAll('[data-calendar-date]')).toHaveLength(42);
+    expect(wrapper.findAll('[data-calendar-date]')[0]!.attributes('data-calendar-date')).toBe('2026-12-28');
+    expect(wrapper.get('[data-calendar-date="2026-12-28"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[data-date="2027-01-02"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[aria-label="Следующий месяц"]').attributes('disabled')).toBeDefined();
+    await wrapper.get('[aria-label="Предыдущий месяц"]').trigger('click');
+    expect(wrapper.get('.calendar-month').text()).toContain('декабрь 2026');
+    expect(wrapper.get('[aria-label="Предыдущий месяц"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.findAll('[data-calendar-date]')[0]!.attributes('data-calendar-date')).toBe('2026-11-30');
+    await wrapper.get('[data-date="2026-12-31"]').trigger('click');
+    expect(wrapper.text()).toContain('В этот день нет свободного времени');
+    await wrapper.get('[aria-label="Следующий месяц"]').trigger('click');
+    expect(wrapper.get('[data-date="2026-12-31"]').attributes('aria-pressed')).toBe('true');
+    expect(wrapper.get('[data-calendar-date="2027-01-12"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[data-date="2027-01-02"]').text()).toContain('1 св.');
+  } finally { wrapper.unmount(); }
+});
+
+test('исчезновение выбранного слота закрывает итог подтверждения и блокирует продолжение', async () => {
+  let body = availability();
+  api(async () => json(body));
+  const wrapper = mount(App);
+  try {
+    await flushPromises();
+    await wrapper.get('[data-slot]').trigger('click');
+    await wrapper.findAll('button').find((item) => item.text() === 'Продолжить')!.trigger('click');
+    expect(wrapper.find('[aria-label="Итог записи"]').exists()).toBe(true);
+    body = { ...body, days: body.days.map((day) => ({ ...day, slots: [] })) };
+    window.dispatchEvent(new Event('focus'));
+    await flushPromises();
+    expect(wrapper.find('[aria-label="Итог записи"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Выбранный интервал больше недоступен');
+    expect(wrapper.get('[aria-label="Сведения о встрече"]').text()).toContain('Время не выбрано');
+    expect(wrapper.findAll('button').find((item) => item.text() === 'Продолжить')!.attributes('disabled')).toBeDefined();
+  } finally { wrapper.unmount(); }
 });

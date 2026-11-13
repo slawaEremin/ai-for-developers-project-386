@@ -24,21 +24,23 @@ function api(send: (request: Request) => Promise<Response>) {
 function button(wrapper: ReturnType<typeof mount>, label: string) { return wrapper.findAll('button').find((item) => item.text() === label)!; }
 afterEach(() => { window.history.replaceState(null, '', '/'); vi.unstubAllGlobals(); sessionStorage.clear(); vi.useRealTimers(); });
 
-test('выбор показывает итог, отдельное подтверждение блокирует изменения и показывает сохранённую запись', async () => {
+test('продолжение показывает итог, отдельное подтверждение блокирует изменения и показывает сохранённую запись', async () => {
   let resolve: (response: Response) => void = () => {};
   const { fetch } = api(() => new Promise<Response>((done) => { resolve = done; }));
   const wrapper = mount(App);
   try {
     await flushPromises();
-    expect(button(wrapper, 'Подтвердить запись').attributes('disabled')).toBeDefined();
+    expect(button(wrapper, 'Продолжить').attributes('disabled')).toBeDefined();
     await wrapper.get('[data-slot]').trigger('click');
-    expect(wrapper.get('[aria-label="Итог записи"]').text()).toContain('Консультация');
-    expect(wrapper.get('[aria-label="Итог записи"]').text()).toContain('45 минут');
+    expect(wrapper.find('[aria-label="Итог записи"]').exists()).toBe(false);
     expect(fetch.mock.calls.every(([request]) => request.method === 'GET')).toBe(true);
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(button(wrapper, 'Подтвердить запись').attributes('disabled')).toBeDefined();
-    expect(wrapper.get('[data-slot]').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('[aria-label="Итог записи"]').text()).toContain('Консультация');
+    expect(wrapper.get('[aria-label="Итог записи"]').text()).toContain('45 минут');
+    expect(wrapper.find('[data-slot]').exists()).toBe(false);
     expect(wrapper.get('[data-date]').attributes('disabled')).toBeDefined();
     expect(wrapper.find('a[href="#/booking?type=consultation"]').exists()).toBe(false);
     const request = fetch.mock.calls.map(([item]) => item).find((item) => item.method === 'POST')!;
@@ -66,6 +68,7 @@ test('конфликт сохраняет тип и дату, сбрасывае
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Это время уже занято. Выберите другой слот');
@@ -73,7 +76,7 @@ test('конфликт сохраняет тип и дату, сбрасывае
     expect(wrapper.text()).toContain('В этот день нет свободного времени');
     expect(wrapper.text()).not.toContain('Выбрано:');
     expect(wrapper.get('[aria-label="Выбранный тип встречи"]').text()).toContain('Консультация');
-    expect(button(wrapper, 'Подтвердить запись').attributes('disabled')).toBeDefined();
+    expect(button(wrapper, 'Продолжить').attributes('disabled')).toBeDefined();
   } finally { wrapper.unmount(); }
 });
 
@@ -91,6 +94,7 @@ test.each(['network', 'technical', 'internal', 'malformed'] as const)('неоп�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Результат записи неизвестен');
@@ -116,6 +120,7 @@ test('отказ окна обновляет календарь и предла�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Время вне окна записи. Выберите другой слот');
@@ -130,6 +135,7 @@ test('перезагрузка сохраняет исходную попытк�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     const first = control.fetch.mock.calls.map(([r]) => r).find((r) => r.method === 'POST')!;
@@ -158,6 +164,7 @@ test('после 15 секунд явный повтор определяет и
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(sessionStorage.length).toBe(1);
@@ -191,6 +198,7 @@ test('успех завершает попытку, обычная переза�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(sessionStorage.length).toBe(0);
@@ -210,6 +218,7 @@ test('ошибка сохранения в хранилище предотвра
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
     const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('quota'); });
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Не удалось сохранить попытку');
@@ -226,10 +235,12 @@ test('однозначный отказ завершает сохранённу�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(sessionStorage.length).toBe(0);
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     const requests = control.fetch.mock.calls.map(([r]) => r).filter((r) => r.method === 'POST');
@@ -244,6 +255,7 @@ test('восстановление не требует доступности к
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     wrapper.unmount();
@@ -251,7 +263,7 @@ test('восстановление не требует доступности к
     window.history.replaceState(null, '', '/#/booking');
     wrapper = mount(App);
     await flushPromises();
-    expect(wrapper.text()).toContain('Не удалось загрузить каталог');
+    expect(wrapper.find('[aria-label="Типы встреч"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('Результат записи неизвестен');
     expect(calls).toBe(1);
     await button(wrapper, 'Повторить подтверждение').trigger('click');
@@ -268,6 +280,7 @@ test('нечитаемое хранилище блокирует подтвер�
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Не удалось сохранить попытку');
@@ -280,8 +293,8 @@ test('нечитаемое хранилище блокирует подтвер�
 test.each([
   ['pending', '#/owner', 'Страница владельца'],
   ['unknown', '#/owner', 'Страница владельца'],
-  ['pending', '#/', 'Выберите удобное время для звонка.'],
-  ['unknown', '#/', 'Выберите удобное время для звонка.'],
+  ['pending', '#/', 'Calendar'],
+  ['unknown', '#/', 'Calendar'],
 ] as const)('при результате %s переход на %s сохраняет адрес страницы и исходную попытку при возвращении', async (state, destination, heading) => {
   let calls = 0;
   const control = api(async () => {
@@ -294,6 +307,7 @@ test.each([
   try {
     await flushPromises();
     await wrapper.get('[data-slot]').trigger('click');
+    await button(wrapper, 'Продолжить').trigger('click');
     await button(wrapper, 'Подтвердить запись').trigger('click');
     await flushPromises();
     const first = control.fetch.mock.calls.map(([request]) => request).find((request) => request.method === 'POST')!;
@@ -305,7 +319,7 @@ test.each([
     });
     wrapper.get<HTMLAnchorElement>('header a[href="#/booking"]').element.click();
     await vi.waitFor(() => expect(wrapper.text()).toContain('Результат записи неизвестен'));
-    expect(wrapper.get('h1').text()).toBe('Запись на звонок');
+    expect(wrapper.get('h1').text()).toBe('Консультация');
     expect(window.location.hash).toBe('#/booking?type=consultation');
     expect(control.fetch.mock.calls.filter(([request]) => request.method === 'POST')).toHaveLength(1);
     await button(wrapper, 'Повторить подтверждение').trigger('click');
@@ -314,5 +328,25 @@ test.each([
     expect(repeat.headers.get('Idempotency-Key')).toBe(first.headers.get('Idempotency-Key'));
     expect(await repeat.json()).toEqual(payload);
     expect(wrapper.find('[aria-label="Запись подтверждена"]').exists()).toBe(true);
+  } finally { wrapper.unmount(); }
+});
+
+test('продолжение открывает итог без POST и сохранения попытки, возврат сохраняет выбор', async () => {
+  const { fetch } = api(async () => json(booking, 201));
+  const wrapper = mount(App, { attachTo: document.body });
+  try {
+    await flushPromises();
+    await wrapper.get('[data-slot]').trigger('click');
+    expect(wrapper.find('[aria-label="Итог записи"]').exists()).toBe(false);
+    await button(wrapper, 'Продолжить').trigger('click');
+    await flushPromises();
+    expect(wrapper.get('[aria-label="Итог записи"]').text()).toContain('09:00–09:45');
+    expect(document.activeElement).toBe(wrapper.get('.slots-panel > h2').element);
+    expect(fetch.mock.calls.every(([request]) => request.method === 'GET')).toBe(true);
+    expect(sessionStorage.length).toBe(0);
+    await button(wrapper, 'Назад').trigger('click');
+    expect(wrapper.find('[aria-label="Итог записи"]').exists()).toBe(false);
+    expect(wrapper.get('[data-slot]').attributes('aria-pressed')).toBe('true');
+    expect(button(wrapper, 'Продолжить').attributes('disabled')).toBeUndefined();
   } finally { wrapper.unmount(); }
 });

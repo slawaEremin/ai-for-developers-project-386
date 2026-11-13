@@ -16,21 +16,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('гость видит каталог и выбирает тип на той же странице с адресом только типа', async () => {
+test('гость видит каталог и открывает отдельный экран записи с адресом только типа', async () => {
   window.history.replaceState(null, '', '/#/booking');
   stubFetch(vi.fn().mockResolvedValueOnce(json({ serverTime: '2026-11-12T12:00:00Z', items: [meeting] })).mockResolvedValueOnce(json(meeting)));
   const wrapper = mount(App);
   try {
     expect(wrapper.text()).toContain('Загрузка каталога');
     await flushPromises();
-    expect(wrapper.get('h1').text()).toBe('Запись на звонок');
-    expect(wrapper.get('[aria-label="Типы встреч"]').text()).toContain('45 минут');
+    expect(wrapper.get('h1').text()).toBe('Выберите тип встречи');
+    expect(wrapper.get('[aria-label="Типы встреч"]').text()).toContain('45 мин');
     expect(wrapper.find('b').exists()).toBe(false);
     expect(wrapper.text()).toContain('<b>Вопросы</b>');
     expect(wrapper.find('[aria-label="Выбранный тип встречи"]').exists()).toBe(false);
     wrapper.get<HTMLAnchorElement>('a[href="#/booking?type=consultation"]').element.click();
     await vi.waitFor(() => expect(wrapper.get('[aria-label="Выбранный тип встречи"]').text()).toContain('Консультация'));
-    expect(wrapper.find('[aria-label="Типы встреч"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Типы встреч"]').exists()).toBe(false);
+    expect(wrapper.get('h1').text()).toBe('Консультация');
     expect(window.location.hash).toBe('#/booking?type=consultation');
     expect(wrapper.text()).toContain('Календарь');
   } finally { wrapper.unmount(); }
@@ -111,5 +112,24 @@ test('поздний ответ предыдущего выбора не зам�
     resolve(json({ ...meeting, id: 'slow', name: 'Старый тип' }));
     await flushPromises();
     expect(wrapper.get('[aria-label="Выбранный тип встречи"]').text()).not.toContain('Старый тип');
+  } finally { wrapper.unmount(); }
+});
+
+test('возврат из записи открывает каталог, фокусирует заголовок и очищает время', async () => {
+  window.history.replaceState(null, '', '/#/booking?type=consultation');
+  stubFetch((request: Request) => Promise.resolve(json(request.url.endsWith('/consultation') ? meeting : { serverTime: '2026-11-12T12:00:00Z', items: [meeting] })));
+  const wrapper = mount(App, { attachTo: document.body });
+  try {
+    await flushPromises();
+    expect(wrapper.find('[aria-label="Типы встреч"]').exists()).toBe(false);
+    expect(wrapper.get('h1').text()).toBe('Консультация');
+    wrapper.get<HTMLAnchorElement>('main a[href="#/booking"]').element.click();
+    await vi.waitFor(() => {
+      expect(wrapper.get('h1').text()).toBe('Выберите тип встречи');
+      expect(document.activeElement).toBe(wrapper.get('h1').element);
+    });
+    expect(window.location.hash).toBe('#/booking');
+    expect(wrapper.find('[aria-label="Выбранный тип встречи"]').exists()).toBe(false);
+    expect(wrapper.get('[aria-label="Типы встреч"]').text()).toContain(meeting.name);
   } finally { wrapper.unmount(); }
 });

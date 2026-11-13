@@ -4,7 +4,20 @@ import os
 import subprocess
 import sys
 
-if __name__ == "__main__":
+
+def server_port():
+    value = os.environ.get("PORT", "8000")
+    if not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 65535:
+        raise ValueError("PORT должен быть целым числом от 1 до 65535")
+    return str(int(value))
+
+
+def main():
+    try:
+        port = server_port()
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
     subprocess.run([sys.executable, "-m", "app.prepare"], check=True)
     os.execv(
         sys.executable,
@@ -16,8 +29,12 @@ if __name__ == "__main__":
             "--host",
             "0.0.0.0",
             "--port",
-            "8000",
+            port,
             "--workers",
             "1",
         ],
     )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

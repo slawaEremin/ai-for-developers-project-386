@@ -1,5 +1,6 @@
 services:
   db:
+    profiles: [development]
     image: postgres:17-bookworm
     environment:
       POSTGRES_DB: calendar
@@ -17,14 +18,14 @@ services:
   app:
     build:
       context: .
-      dockerfile: apps/infra/Dockerfile
+      dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://calendar:calendar@db:5432/calendar
+      PORT: ${PORT:-8000}
       OWNER_NAME: Владелец календаря
-    depends_on:
-      db:
-        condition: service_healthy
+    volumes:
+      - calendar-standalone-data:/app/data
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
 volumes:
   calendar-data:
+  calendar-standalone-data:

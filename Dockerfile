@@ -20,12 +20,25 @@ RUN npm run generate && npm run build
 RUN cd apps/backend && uv sync --locked --no-dev --no-install-project
 
 FROM python:3.13-slim-bookworm AS runtime
-RUN useradd --create-home --uid 10001 app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl --fail --show-error --silent https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+       -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' \
+       > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-common \
+    && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-17 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 app \
+    && install -d -o app -g app /app/data
 WORKDIR /app
 COPY --from=build /build/apps/backend/.venv /app/.venv
 COPY --from=build /build/apps/backend/app /app/app
 COPY --from=build /build/apps/frontend/dist /app/dist
-ENV PATH="/app/.venv/bin:$PATH" STATIC_DIR=/app/dist
+ENV PATH="/app/.venv/bin:/usr/lib/postgresql/17/bin:$PATH" STATIC_DIR=/app/dist
 USER app
 EXPOSE 8000
-CMD ["python", "-m", "app.start"]
+CMD ["python", "-m", "app.container_start"]
